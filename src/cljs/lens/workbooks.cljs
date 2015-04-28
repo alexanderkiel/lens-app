@@ -1,13 +1,15 @@
 (ns lens.workbooks
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
-  (:require [plumbing.core :refer [assoc-when]]
+  (:require [clojure.string :as str]
+            [plumbing.core :refer [assoc-when]]
             [cljs.core.async :refer [put! sub chan <!]]
             [om.core :as om :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.util :refer [set-title!]]
             [lens.fa :as fa]
-            [lens.event-bus :as bus]))
+            [lens.event-bus :as bus]
+            [lens.util :as util]))
 
 (defcomponent workbook [workbook]
   (render [_]
@@ -18,12 +20,12 @@
 (defn publish-create! [dialog owner]
   (let [name (.-value (om/get-node owner "name"))]
     (bus/publish! owner :post {:action (:create-uri dialog) :params {:name name}
-                               :result-topic ::private-create})))
+                               :result-topic :private-workbooks/create})))
 
 (defcomponent create-dialog [dialog owner]
   (will-mount [_]
     (println "will-mount")
-    (bus/listen-on owner ::private-create
+    (bus/listen-on owner :private-workbooks/create
       #(om/update! dialog :visible false)))
   (render [_]
     (d/div {:class "modal"
@@ -79,15 +81,27 @@
     {:create-uri (:action (:lens/create (:forms doc)))
      :visible false}}})
 
-(defcomponent workbooks [workbooks owner]
+(defn build-initial-workbooks-state! [wbs owner key]
+  (bus/listen-on owner key #(om/update! wbs key (build-workbooks-state %))))
+
+(defn add-created-workbook! [wbs owner key]
+  (bus/listen-on owner (keyword (name key) "create")
+    (fn [doc]
+      (om/transact! wbs [key :list]
+                    #(util/insert-by (comp str/lower-case :name) % doc)))))
+
+(defn load-workbooks! [owner key]
+  (bus/publish! owner :load {:link-rel (util/prepend-ns "lens" key)
+                             :loaded-topic key}))
+
+(defcomponent workbooks [wbs owner]
   (will-mount [_]
-      (bus/listen-on owner ::private-workbooks
-        #(om/update! workbooks :private-workbooks (build-workbooks-state %)))
-    (bus/publish! owner :load {:link-rel :lens/private-workbooks
-                                 :loaded-topic ::private-workbooks}))
+    (build-initial-workbooks-state! wbs owner :private-workbooks)
+    (add-created-workbook! wbs owner :private-workbooks)
+    (load-workbooks! owner :private-workbooks))
   (render [_]
-    (when (:active workbooks) (set-title! "Workbooks - Lens"))
+    (when (:active wbs) (set-title! "Workbooks - Lens"))
     (d/div {:class "container-fluid"
-            :style {:display (if (:active workbooks)  "block" "none")}}
-      (when-let [ws (:private-workbooks workbooks)]
+            :style {:display (if (:active wbs)  "block" "none")}}
+      (when-let [ws (:private-workbooks wbs)]
         (om/build private-workbooks ws)))))

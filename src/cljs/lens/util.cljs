@@ -9,6 +9,13 @@
   [s]
   (str/replace s "/" "/\u00AD"))
 
+(defn prepend-ns [ns kw]
+  (keyword ns (name kw)))
+
+(defn insert-by [fn coll x]
+  (let [pred #(neg? (compare (fn %) (fn x)))]
+    (into (vec (take-while pred coll)) (cons x (drop-while pred coll)))))
+
 ;; ---- Events ----------------------------------------------------------------
 
 (defn listen [el type]
