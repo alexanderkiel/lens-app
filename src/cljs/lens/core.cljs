@@ -46,11 +46,7 @@
        :list {:terms []}}}
      :pages
      {:workbooks
-      {:private-workbooks
-       {:headline "My Workbooks"
-        :creator
-        {:dialog
-         {:visible false}}}}}}))
+      {}}}))
 
 (defn create-history []
   (doto (Html5History.)

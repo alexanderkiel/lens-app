@@ -15,23 +15,17 @@
       (d/div {:class "workbook-thumb"}
         (:name workbook)))))
 
-(defn publish-create! [owner]
-  (let [name (.-value (om/get-node owner "name"))
-        uri (om/get-state owner :create-uri)]
-    (bus/publish! owner :post {:action uri :params {:name name}
+(defn publish-create! [dialog owner]
+  (let [name (.-value (om/get-node owner "name"))]
+    (bus/publish! owner :post {:action (:create-uri dialog) :params {:name name}
                                :result-topic ::private-create})))
 
 (defcomponent create-dialog [dialog owner]
-  (init-state [_]
-    {:create-uri nil})
   (will-mount [_]
     (println "will-mount")
     (bus/listen-on owner ::private-create
-      #(om/update! dialog :visible false))
-    (bus/listen-on owner ::private-workbooks
-      #(do (println (:action (:lens/create (:forms %)))) (om/set-state! owner :create-uri (:action (:lens/create (:forms %)))))))
-  (render-state [_ {:keys [create-uri]}]
-    (println "render" create-uri)
+      #(om/update! dialog :visible false)))
+  (render [_]
     (d/div {:class "modal"
             :style {:display (if (:visible dialog) "block" "none")}
             :tab-index -1
@@ -53,8 +47,9 @@
             (d/button {:type "button" :class "btn btn-default"
                        :on-click #(om/update! dialog {})} "Dismiss")
             (d/button (-> {:type "button" :class "btn btn-primary"
-                           :on-click #(publish-create! owner)}
-                          (assoc-when :disabled (when-not create-uri "disabled")))
+                           :on-click #(publish-create! dialog owner)}
+                          (assoc-when :disabled (when-not (:create-uri dialog)
+                                                  "disabled")))
                       "Create")))))))
 
 (defcomponent creator [creator]
@@ -66,25 +61,33 @@
                  :on-click #(om/update! creator [:dialog :visible] true)}))
       (om/build create-dialog (:dialog creator)))))
 
-(defcomponent private-workbooks [workbooks owner]
-  (will-mount [_]
-    (bus/listen-on owner ::private-workbooks
-      #(om/update! workbooks :list (:lens/workbooks (:embedded %))))
-    (bus/publish! owner :load {:link-rel :lens/private-workbooks
-                               :loaded-topic ::private-workbooks}))
+(defcomponent private-workbooks [workbooks]
   (render [_]
     (d/div
       (d/div {:class "row"}
         (d/div {:class "col-md-12"}
           (d/h4 {:class "text-uppercase text-muted"}
-                (fa/span :user) (str " " (:headline workbooks)))))
+                (fa/span :user) " My Workbooks")))
       (d/div {:class "row"}
         (apply d/div (om/build-all workbook (:list workbooks)))
         (om/build creator (:creator workbooks))))))
 
-(defcomponent workbooks [workbooks]
+(defn build-workbooks-state [doc]
+  {:list (:lens/workbooks (:embedded doc))
+   :creator
+   {:dialog
+    {:create-uri (:action (:lens/create (:forms doc)))
+     :visible false}}})
+
+(defcomponent workbooks [workbooks owner]
+  (will-mount [_]
+      (bus/listen-on owner ::private-workbooks
+        #(om/update! workbooks :private-workbooks (build-workbooks-state %)))
+    (bus/publish! owner :load {:link-rel :lens/private-workbooks
+                                 :loaded-topic ::private-workbooks}))
   (render [_]
     (when (:active workbooks) (set-title! "Workbooks - Lens"))
     (d/div {:class "container-fluid"
             :style {:display (if (:active workbooks)  "block" "none")}}
-      (om/build private-workbooks (:private-workbooks workbooks)))))
+      (when-let [ws (:private-workbooks workbooks)]
+        (om/build private-workbooks ws)))))
