@@ -1,25 +1,10 @@
 (ns lens.navbar
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :as async :refer [put! chan <! >! alts! pub sub]]
-            [goog.dom :as dom]
-            [om.core :as om :include-macros true]
+  (:require-macros [lens.macros :refer [h]])
+  (:require [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
-            [cljs-time.format :as tf]
-            [cljs-time.coerce :as tc]
-            [lens.io :as io]
             [lens.event-bus :as bus]
-            [lens.item-dialog :refer [item-dialog]]
-            [lens.workbook :refer [workbook]]
-            [lens.util :as util]
-            [lens.fa :as fa]))
-
-(defn format-german [date-time]
-  (tf/unparse (tf/formatter "dd.MM.yyyy HH:mm") date-time))
-
-(defn last-loaded-text [last-loaded]
-  (->> (or (some->> last-loaded (format-german)) "<unknown>")
-       (str "Data last loaded at ")))
+            [lens.util :as util]))
 
 ;; ---- Nav -------------------------------------------------------------------
 
@@ -60,17 +45,17 @@
                     :on-change
                     #(om/set-state! owner :password (util/target-value %))}))
         (d/button {:class "btn btn-primary" :type "button"
-                   :on-click #(bus/publish! owner :sign-in state)} "Go")
+                   :on-click (h (bus/publish! owner :sign-in state))} "Go")
         (d/button {:class "btn btn-default" :type "button"
-                   :on-click #(om/set-state! owner :expanded false)} "Cancel"))
+                   :on-click (h (om/set-state! owner :expanded false))} "Cancel"))
 
       (d/button {:class "btn btn-default navbar-btn navbar-right"
-                 :on-click #(om/set-state! owner :expanded true)
+                 :on-click (h (om/set-state! owner :expanded true))
                  :type "button"} "Sign In"))))
 
 (defn- sign-out-button [owner]
   (d/span {:class "fa fa-sign-out" :role "button" :title "Sign Out"
-           :on-click #(bus/publish! owner :sign-out {})}))
+           :on-click (h (bus/publish! owner :sign-out {}))}))
 
 (defcomponent sign-in-out [sign-in-out owner]
   (will-mount [_]
@@ -85,19 +70,14 @@
 ;; ---- Navbar ----------------------------------------------------------------
 
 (defcomponent navbar [navbar owner]
-  (will-mount [_]
-    (let [ch (chan)]
-      (sub (bus/publication owner) :service-document-loaded ch)
-      (go
-        (when-let [doc (:service-document (<! ch))]
-          (when-let [last-loaded (:last-loaded doc)]
-            (om/update! navbar :last-loaded (tc/from-date last-loaded)))))))
   (render [_]
     (println navbar)
     (d/div {:class "navbar navbar-default navbar-fixed-top"
             :role "navigation"}
       (d/div {:class "container-fluid"}
         (d/div {:class "navbar-header"}
-          (d/a {:class "navbar-brand" :href "#"} "Lens"))
+          (d/a {:class "navbar-brand" :role "button"
+                :on-click (h (bus/publish! owner :route {:handler :index}))}
+            "Lens"))
         (om/build nav (:nav navbar))
         (om/build sign-in-out (:sign-in-out navbar))))))

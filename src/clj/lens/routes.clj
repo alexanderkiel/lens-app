@@ -15,10 +15,7 @@
     (GET "/" []
       (file-response (index-html dev) {:root "resources"}))
 
-    (GET "/workbooks" []
-      (file-response (index-html dev) {:root "resources"}))
-
-    (GET "/workbooks/:id" []
+    (GET "/w/:id" []
       (file-response (index-html dev) {:root "resources"}))
 
     (route/files "/" {:root "resources/public"})))

@@ -13,7 +13,8 @@
             [goog.dom :as dom]
             [lens.event-bus :as event-bus]
             [lens.util :as util]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [lens.event-bus :as bus]))
 
 (defn sub-local [owner topic k]
   (sub (event-bus/publication owner) topic (om/get-state owner k)))
@@ -267,5 +268,6 @@
 
 (defcomponent workbook [workbook]
   (render [_]
+    (util/set-title! (str (:name workbook) " - Lens"))
     (apply d/div (om/build-all query (:queries workbook)
                                {:opts (select-keys workbook [:query-form])}))))

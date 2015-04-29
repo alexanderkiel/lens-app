@@ -37,6 +37,10 @@ body {
   background-color: #FFF;
 }
 
+.workbook-thumb:hover {
+  background-color: #f2f2f2;
+}
+
 .workbook-thumb-create {
   color: #777;
   text-align: center;
