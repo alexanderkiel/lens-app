@@ -1,6 +1,7 @@
 (ns lens.util
   (:require [clojure.string :as str]
             [cljs.core.async :refer [chan put!]]
+            [plumbing.core :refer [assoc-when]]
             [goog.events :as events]))
 
 (defn add-soft-hyphen
@@ -15,6 +16,9 @@
 (defn insert-by [fn coll x]
   (let [pred #(neg? (compare (fn %) (fn x)))]
     (into (vec (take-while pred coll)) (cons x (drop-while pred coll)))))
+
+(defn disable-when [m pred]
+  (assoc-when m :disabled (when pred "disabled")))
 
 ;; ---- Events ----------------------------------------------------------------
 
