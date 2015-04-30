@@ -34,4 +34,5 @@
 ;; ---- Document --------------------------------------------------------------
 
 (defn set-title! [title]
-  (set! (.-title js/document) title))
+  (when-not (= title (.-title js/document))
+    (set! (.-title js/document) title)))
