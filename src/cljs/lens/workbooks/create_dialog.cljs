@@ -29,20 +29,21 @@
   (d/button {:type "button" :class "close" :on-click (h (hide! dialog))}
             (d/span "\u00D7")))
 
-(defcomponent form [form]
-  (render [_]
-    (d/form
-      (d/div {:class "form-group"}
-        (d/label {:for "workbooks-create-dialog-name"} "Name")
-        (d/input {:type "text" :class "form-control" :ref "name"
-                  :value (:name form)
-                  :id "workbooks-create-dialog-name"
-                  :placeholder "Like \"Project XY\" for example..."
-                  :on-change #(om/update! form :name (util/target-value %))})))))
+(defn form [form]
+  (d/form
+    (d/div {:class "form-group"}
+      (d/label {:for "workbooks-create-dialog-name"} "Name")
+      (d/input {:type "text" :class "form-control" :ref "name"
+                :value (:name form)
+                :id "workbooks-create-dialog-name"
+                :placeholder "Like \"Project XY\" for example..."
+                :on-change #(om/update! form :name (util/target-value %))}))))
 
 (defcomponent create-dialog [dialog owner]
   (will-mount [_]
     (bus/listen-on owner :private-workbooks/created #(hide! dialog)))
+  (did-update [_ _ _]
+    (.focus (om/get-node owner "name")))
   (render [_]
     (d/div {:class "modal"
             :style {:display (if (:visible dialog) "block" "none")}
@@ -54,7 +55,7 @@
             (close-button dialog)
             (d/h4 {:class "modal-title"} "Create Workbook"))
           (d/div {:class "modal-body"}
-            (om/build form (:form dialog)))
+            (form (:form dialog)))
           (d/div {:class "modal-footer"}
             (dismiss-button dialog)
             (create-button dialog owner)))))))
