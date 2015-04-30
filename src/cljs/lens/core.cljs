@@ -13,6 +13,7 @@
             [lens.event-bus :as bus]
             [lens.navbar :refer [navbar]]
             [lens.item-dialog :refer [item-dialog]]
+            [lens.alert :refer [alert]]
             [lens.workbook :refer [workbook]]
             [lens.workbooks :refer [workbooks]]))
 
@@ -24,6 +25,8 @@
      {:nav
       {:items []}
       :sign-in-out {}}
+     :alert
+     {}
      :item-dialog
      {:display "none"
       :terms
@@ -95,12 +98,10 @@
   [owner]
   (bus/listen-on-mult owner
     {:load
-     (fn [unresolvables {:keys [link-rel loaded-topic] :as msg}]
-       (if link-rel
-         (if-let [uri (resolv-uri owner link-rel)]
-           (do (load! owner uri loaded-topic) unresolvables)
-           (conj unresolvables msg))
-         unresolvables))
+     (fn [unresolvables {:keys [uri link-rel loaded-topic] :as msg}]
+       (if-let [uri (or uri (resolv-uri owner link-rel))]
+         (do (load! owner uri loaded-topic) unresolvables)
+         (conj unresolvables msg)))
      :service-document-loaded
      (fn [unresolvables]
        (reduce
@@ -120,7 +121,6 @@
   (bus/listen-on-mult owner
     {:query
      (fn [unresolvables {:keys [form-rel params loaded-topic] :as msg}]
-       (println "query" form-rel (when form-rel (resolv-action owner form-rel)))
        (if form-rel
          (if-let [action (resolv-action owner form-rel)]
            (do (query! owner action params loaded-topic) unresolvables)
@@ -130,7 +130,6 @@
      (fn [unresolvables]
        (reduce
          (fn [unresolvables {:keys [form-rel params loaded-topic] :as unresolvable}]
-           (println "query" form-rel (resolv-action owner form-rel))
            (if-let [action (resolv-action owner form-rel)]
              (do (query! owner action params loaded-topic) unresolvables)
              (conj unresolvables unresolvable)))
@@ -141,13 +140,29 @@
 (defn post-loop [owner]
   (bus/listen-on owner :post
     (fnk [action params result-topic]
+      (assert action)
       (-> {:url action :data params
            :on-complete (fn [result] (bus/publish! owner result-topic result))}
           (auth/assoc-auth-token)
           (io/post-form)))))
 
+(defn put-loop [owner]
+  (bus/listen-on owner :put
+    (fnk [action if-match params result-topic]
+      (assert action)
+      (assert if-match)
+      (-> {:url action :if-match if-match :data params
+           :on-complete (fn [result] (bus/publish! owner result-topic result))}
+          (auth/assoc-auth-token)
+          (io/put-form)))))
+
+(defn prepare-workbook
+  "Copies the ETag from metadata to the :etag key."
+  [wb]
+  (assoc wb :etag ((meta wb) "etag")))
+
 (defn on-loaded-workbook [app wb]
-  (om/transact! app #(-> (assoc % :workbook wb)
+  (om/transact! app #(-> (assoc % :workbook (prepare-workbook wb))
                          (assoc-in [:workbooks :active] false))))
 
 (defcomponent app [app owner]
@@ -159,6 +174,7 @@
     (load-loop owner)
     (query-loop owner)
     (post-loop owner)
+    (put-loop owner)
     (load-count-loop (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
     (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app %))
@@ -170,11 +186,13 @@
       (d/div
         (om/build item-dialog (:item-dialog app))
         (om/build navbar (:navbar app))
+        (om/build alert (:alert app))
         (om/build workbooks (:workbooks app))
         (om/build workbook wb))
       (d/div
         (om/build item-dialog (:item-dialog app))
         (om/build navbar (:navbar app))
+        (om/build alert (:alert app))
         (om/build workbooks (:workbooks app))))))
 
 (om/root app app-state

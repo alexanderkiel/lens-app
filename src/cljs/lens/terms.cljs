@@ -1,5 +1,6 @@
 (ns lens.terms
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
+                   [lens.macros :refer [h]])
   (:require [plumbing.core :refer [assoc-when conj-when]]
             [clojure.string :as str]
             [om.core :as om :include-macros true]
@@ -13,13 +14,14 @@
             [lens.component :as comp]
             [lens.event-bus :as event-bus]
             [lens.scroll-list :as sl]
-            [lens.util :as util]))
+            [lens.util :as util]
+            [lens.event-bus :as bus]))
 
 (defcomponent return-stack-item [term]
   (render-state [_ {:keys [return-ch]}]
     (d/li
       (d/a {:href "#"
-            :on-click #(put! return-ch @term)}
+            :on-click (h (put! return-ch @term))}
         (when-let [count (:count term)]
           (d/span {:class "badge"} count))
         (or (some-> (:name term) (util/add-soft-hyphen)) (:id term))))))
@@ -55,7 +57,7 @@
     (d/a {:class (str/join " " (conj-when ["list-group-item"]
                                           (when (:active term) "active")))
           :href "#"
-          :on-click #(put! activate (:id @term))
+          :on-click (h (put! activate (:id @term)))
           :on-double-click #(when (:childs @term) (put! open @term))}
       (om/build comp/count-badge term)
       (primary-label term)
@@ -164,6 +166,7 @@
       (conj new-node)))
 
 (defn load-childs [terms term]
+  {:pre [(-> term :childs :link :href)]}
   (io/get-xhr
    {:url (-> term :childs :link :href)
     :on-complete
@@ -212,6 +215,7 @@
       (recur))))
 
 (defn all-forms [all-forms-href]
+  {:pre [all-forms-href]}
   {:name "Forms"
    :childs
    {:rel :lens/forms
@@ -238,14 +242,10 @@
      :return-ch (chan)
      :search-result-ch (chan)})
   (will-mount [_]
-    (let [ch (chan)]
-      (sub (event-bus/publication owner) :service-document-loaded ch)
-      (go-loop []
-        (when-let [msg (<! ch)]
-          (when-let [all-forms (some-> msg :service-document :links
-                                       :lens/all-forms :href all-forms)]
-            (put! (om/get-state owner :open) all-forms))
-          (recur))))
+    (bus/listen-on owner :service-document-loaded
+      (fn [doc]
+        (when-let [all-forms-href (-> doc :links :lens/all-forms :href)]
+          (put! (om/get-state owner :open) (all-forms all-forms-href)))))
     (let [open (om/get-state owner :open)
           return-ch (om/get-state owner :return-ch)]
       (go-loop []

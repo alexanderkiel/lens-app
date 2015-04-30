@@ -1,39 +1,22 @@
 (ns lens.item-dialog
-  (:require-macros [cljs.core.async.macros :refer [go-loop]])
-  (:require [cljs.core.async :as async :refer [chan put! <! >!]]
+  (:require-macros [cljs.core.async.macros :refer [go-loop]]
+                   [lens.macros :refer [h]])
+  (:require [cljs.core.async :refer [chan put! <! >!]]
             [om.core :as om :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.io :as io]
-            [lens.fa :as fa]
-            [lens.terms :as terms]))
+            [lens.terms :as terms]
+            [lens.event-bus :as bus]))
 
-(defn- get-dialog-channel [owner]
-  (om/get-shared owner :item-dialog-ch))
-
-(defn show! [owner item-target-ch]
-  (put! (get-dialog-channel owner) [:show item-target-ch]))
+(defn show! [owner target-topic]
+  (bus/publish! owner ::show target-topic))
 
 (defn close! [owner]
-  (put! (get-dialog-channel owner) [:close]))
+  (bus/publish! owner ::close {}))
 
 (defn save! [owner term]
-  (put! (get-dialog-channel owner) [:save term]))
-
-(defn remote-term-search
-  "Search function for the typeahead-search-field.
-
-  It takes the terms state to be able to obtain the :filter-form and returns
-  a channel conveying the result."
-  [terms query]
-  (let [filter-form (-> terms :list :filter-form)
-        result-ch (chan)]
-    (io/form
-     {:url (:action filter-form)
-      :method (:method filter-form)
-      :data {(-> filter-form :params ffirst) query}
-      :on-complete #(put! result-ch %)})
-    result-ch))
+  (bus/publish! owner ::save term))
 
 (defcomponent body [terms]
   (render [_]
@@ -43,21 +26,17 @@
 (defcomponent item-dialog [item-dialog owner]
   (will-mount [_]
     (go-loop []
-      (when-let [[action x] (<! (get-dialog-channel owner))]
-        (condp = action
-          :show
-          (do
-            (om/set-state! owner :item-ch x)
-            (om/update! item-dialog :display "block"))
-          :close
-          (om/update! item-dialog :display "none")
-          :save
-          (do
-            (>! (om/get-state owner :item-ch) x)
-            (om/update! item-dialog :display "none")))
-        (recur))))
-  (will-unmount [_]
-    (async/close! (get-dialog-channel owner)))
+      (bus/listen-on owner ::show
+        (fn [target-topic]
+          (om/set-state! owner :target-topic target-topic)
+          (om/update! item-dialog :display "block")))
+      (bus/listen-on owner ::close
+        (fn [_]
+          (om/update! item-dialog :display "none")))
+      (bus/listen-on owner ::save
+        (fn [term]
+          (bus/publish! owner (om/get-state owner :target-topic) term)
+          (om/update! item-dialog :display "none")))))
   (render [_]
     (d/div {:id "item-dialog"
             :class "modal"
@@ -67,15 +46,15 @@
       (d/div {:class "modal-dialog"}
         (d/div {:class "modal-content"}
           (d/div {:class "modal-header"}
-            (d/button {:type "button" :class "close" :on-click #(close! owner)}
-                      (d/span "\u00D7"))
+            (d/button {:type "button" :class "close"
+                       :on-click (h (close! owner))} (d/span "\u00D7"))
             (d/h4 {:class "modal-title"} "Choose Item"))
           (om/build body (:terms item-dialog))
           (d/div {:class "modal-footer"}
             (d/button {:type "button" :class "btn btn-default"
-                       :on-click #(close! owner)} "Close")
+                       :on-click (h (close! owner))} "Close")
             (d/button {:type "button" :class "btn btn-primary"
-                       :on-click #(->> (:terms item-dialog)
-                                       (terms/find-active-term)
-                                       (deref)
-                                       (save! owner))} "Choose")))))))
+                       :on-click (h (->> (:terms item-dialog)
+                                         (terms/find-active-term)
+                                         (deref)
+                                         (save! owner)))} "Choose")))))))

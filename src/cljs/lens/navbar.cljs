@@ -76,7 +76,7 @@
             :role "navigation"}
       (d/div {:class "container-fluid"}
         (d/div {:class "navbar-header"}
-          (d/a {:class "navbar-brand" :role "button"
+          (d/a {:class "navbar-brand" :href "#"
                 :on-click (h (bus/publish! owner :route {:handler :index}))}
             "Lens"))
         (om/build nav (:nav navbar))
