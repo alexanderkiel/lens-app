@@ -1,6 +1,7 @@
 (ns lens.core
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]
-                   [plumbing.core :refer [fnk defnk letk when-letk for-map]])
+                   [plumbing.core :refer [fnk defnk letk when-letk for-map]]
+                   [lens.macros :refer [h]])
   (:require [plumbing.core :refer [assoc-when]]
             [cljs.core.async :as async :refer [put! chan <!]]
             [goog.dom :as dom]
@@ -13,7 +14,7 @@
             [lens.event-bus :as bus]
             [lens.navbar :refer [navbar]]
             [lens.item-dialog :refer [item-dialog]]
-            [lens.alert :refer [alert]]
+            [lens.alert :as alert :refer [alert alert!]]
             [lens.workbook :refer [workbook]]
             [lens.workbooks :refer [workbooks]]))
 
@@ -163,9 +164,17 @@
   [wb]
   (assoc wb :etag ((meta wb) "etag")))
 
-(defn on-loaded-workbook [app wb]
-  (om/transact! app #(-> (assoc % :workbook (prepare-workbook wb))
-                         (assoc-in [:workbooks :active] false))))
+(defn on-loaded-workbook [app owner wb]
+  (if wb
+    (om/transact! app #(-> (assoc % :workbook (prepare-workbook wb))
+                           (assoc-in [:workbooks :active] false)))
+    (alert! owner :warning
+            (d/span "Workbook not found. Please go "
+              (d/a {:href "#" :class "alert-link"
+                    :on-click (h (alert/close! owner)
+                                 (bus/publish! owner :route {:handler :index}))}
+                "home")
+              "."))))
 
 (defcomponent app [app owner]
   (will-mount [_]
@@ -179,7 +188,7 @@
     (put-loop owner)
     (load-count-loop (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
-    (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app %))
+    (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app owner %))
     (load-all-service-documents owner))
   (will-unmount [_]
     (bus/unlisten-all owner)

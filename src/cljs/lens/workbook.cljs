@@ -11,7 +11,7 @@
             [goog.dom :as dom]
             [lens.util :as util]
             [lens.event-bus :as bus]
-            [lens.alert :as alert :refer [alert!]]))
+            [lens.alert :refer [alert!]]))
 
 ;; ---- Visit Count By Study Event Query --------------------------------------
 
@@ -62,7 +62,7 @@
 (defn single-form-expr [{:keys [id]}]
   {:items [[[:form id]]]})
 
-(defcomponent form [{:keys [id] :as form} owner {:keys [query-form]}]
+(defcomponent form [{:keys [id] :as form} _ {:keys [query-form]}]
   (will-mount [_]
     (println :form :will-mount)
     (when query-form
@@ -103,7 +103,7 @@
         (str "Form: " (:name (:parent item-group))))
       (d/div {:id (str "IG" id)}))))
 
-(defcomponent item [{:keys [id] :as item} owner {:keys [query-form]}]
+(defcomponent item [{:keys [id] :as item} _ _]
   (will-mount [_]
     )
   (will-update [_ _ _]
@@ -130,12 +130,7 @@
     {:hover false
      :dropdown-hover false
      :dropdown-active false})
-  (will-mount [_]
-    (println "will-mount query-grid-cell"))
-  (did-update [_ old _]
-    (println :query-grid-cell :did-update (:id old) "->" (:id term)))
   (render-state [_ {:keys [hover dropdown-hover dropdown-active]}]
-    (println "render query-grid-cell" query-idx col-idx)
     (d/div {:class "query-cell"
             :on-mouse-enter #(om/set-state! owner :hover true)
             :on-mouse-leave #(om/update-state! owner query-grid-cell-mouse-leave)}
@@ -154,7 +149,7 @@
                :style {:display (if dropdown-active "block" "none")}}
           (d/li {:role "presentation"}
             (d/a {:role "menuitem" :tab-index "-1" :href "#"
-                  :on-click (h (bus/publish! owner [:remove-cell query-idx
+                  :on-click (h (bus/publish! owner [::remove-cell query-idx
                                                     col-idx] (:id term)))}
               "Remove"))))
       (condp = (:type term)
@@ -170,34 +165,34 @@
     (d/a {:href "#" :on-click (h (show-item-dialog! owner query-idx col-idx))}
       "Add a cell...")))
 
-(defcomponent query-grid-col [{:keys [idx] :as col} owner
-                              {:keys [query-idx] :as opts}]
+(defcomponent query-grid-col
+  "A column of query cells in the query grid.
+
+  This component handles additions and removals of its cells."
+  [{:keys [idx] :as col} owner {:keys [query-idx] :as opts}]
   (will-mount [_]
-    (println "mount col" query-idx idx)
     (bus/listen-on owner [::add-cell query-idx idx]
       (fn [cell]
-        (println "add cell" query-idx idx (:id cell))
-        (bus/publish! owner ::add-cell [query-idx idx cell])
-        (om/transact! col :cells #(conj % cell))))
-    (bus/listen-on owner [:remove-cell query-idx idx]
+        (if (some #{(:id cell)} (map :id (om/get-props owner :cells)))
+          (alert! owner :warning (str "Can't add cell " (:id cell) " because it's already there."))
+          (do (bus/publish! owner ::add-cell [query-idx idx cell])
+              (om/transact! col :cells #(conj % cell))))))
+    (bus/listen-on owner [::remove-cell query-idx idx]
       (fn [id]
+        (bus/publish! owner ::remove-cell [query-idx idx id])
         (om/transact! col :cells #(filterv (comp (partial not= id) :id) %)))))
   (will-unmount [_]
-    (println "unmount col" query-idx idx)
     (bus/unlisten-all owner))
-  (did-update [_ old _]
-    (println :query-grid-col :did-update
-             (count (:cells old)) "->" (count (:cells col))))
   (render [_]
-    (println "render query-grid-col" query-idx idx)
     (d/div {:class "col-md-4"}
       (apply d/div (om/build-all query-grid-cell (:cells col)
                                  {:opts (assoc opts :col-idx idx)}))
       (cell-adder owner query-idx idx))))
 
-(defcomponent query-grid [query-grid _ {:keys [query-idx collapsed] :as opts}]
+(defcomponent query-grid
+  "A grid of query cells."
+  [query-grid _ {:keys [collapsed] :as opts}]
   (render [_]
-    (println "render query-grid" query-idx)
     (apply d/div {:class "row" :style {:display (if collapsed "none" "block")}}
            (om/build-all query-grid-col (:cols query-grid) {:opts opts}))))
 
@@ -279,7 +274,7 @@
   (->> (index-queries-and-cols version)
        (om/update! workbook :head)))
 
-(defn add-query-cell-msg [version query-idx idx cell]
+(defn add-query-cell-msg [version [query-idx idx cell]]
   {:action (-> version :forms :lens/add-query-cell :action)
    :params
    {:query-idx query-idx
@@ -287,6 +282,20 @@
     :term-type (name (:type cell))
     :term-id (:id cell)}
    :result-topic ::new-version})
+
+(defn post-add-cell! [owner msg]
+  (bus/publish! owner :post (add-query-cell-msg (om/get-props owner) msg)))
+
+(defn remove-query-cell-msg [version [query-idx idx id]]
+  {:action (-> version :forms :lens/remove-query-cell :action)
+   :params
+   {:query-idx query-idx
+    :col-idx idx
+    :term-id id}
+   :result-topic ::new-version})
+
+(defn post-remove-cell! [owner msg]
+  (bus/publish! owner :post (remove-query-cell-msg (om/get-props owner) msg)))
 
 (defn add-query-msg [version]
   {:action (-> version :forms :lens/add-query :action)
@@ -301,13 +310,9 @@
 
 (defcomponent version [version owner]
   (will-mount [_]
-    (println "mount version" (:id version))
-    (bus/listen-on owner ::add-cell
-      (fn [[query-idx idx cell]]
-        (bus/publish! owner :post (add-query-cell-msg (om/get-props owner)
-                                                      query-idx idx cell)))))
+    (bus/listen-on owner ::add-cell #(post-add-cell! owner %))
+    (bus/listen-on owner ::remove-cell #(post-remove-cell! owner %)))
   (will-unmount [_]
-    (println "unmount version" (:id version))
     (bus/unlisten-all owner))
   (render [_]
     (d/div {:class "container-fluid"}
@@ -321,7 +326,7 @@
    :result-topic ::workbook-updated})
 
 (defn on-new-version
-  "Updates the workbooks with the new version created earlier.
+  "Updates the workbook with the new version created earlier.
 
   Doing something to the workbook is always a two stage process. First one
   creates a new immutable version carrying the changes and second one updates

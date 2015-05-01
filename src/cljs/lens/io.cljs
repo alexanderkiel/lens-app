@@ -41,6 +41,7 @@
                      (on-complete))
       204 (->> (headers-as-metadata (js->clj (.getResponseHeaders xhr)) {})
                (on-complete))
+      404 (on-complete nil)
       (throw (str "Error response code: " (.getStatus xhr))))))
 
 (defn- assoc-authorization [m token]
