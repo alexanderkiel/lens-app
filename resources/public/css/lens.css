@@ -4,10 +4,6 @@ body {
   background-color: #E5E5E5;
 }
 
-.text-muted a {
-  color: inherit;
-}
-
 /* ---- Navigation --------------------------------------------------------- */
 
 /* Fix for: https://github.com/twbs/bootstrap/issues/15706 */
@@ -87,6 +83,10 @@ body {
   position: absolute;
   white-space: nowrap;
   opacity: 1;
+}
+
+a.cell-adder {
+  color: inherit;
 }
 
 /* ---- Result ------------------------------------------------------------- */

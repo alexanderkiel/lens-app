@@ -16,7 +16,8 @@
             [lens.item-dialog :refer [item-dialog]]
             [lens.alert :as alert :refer [alert alert!]]
             [lens.workbook :refer [workbook]]
-            [lens.workbooks :refer [workbooks]]))
+            [lens.workbooks :refer [workbooks]]
+            [lens.fa :as fa]))
 
 (enable-console-print!)
 
@@ -24,7 +25,7 @@
   (atom
     {:navbar
      {:nav
-      {:items []}
+      {:items [{:name (fa/span :undo) :handler #(bus/publish! % :undo {})}]}
       :sign-in-out {}}
      :alert
      {}
@@ -35,6 +36,8 @@
        :list {:terms []}}}
      :workbooks
      {}}))
+
+(def app-history (atom []))
 
 (defn load-service-document [owner service]
   (io/get-xhr {:url service
@@ -164,10 +167,10 @@
   [wb]
   (assoc wb :etag ((meta wb) "etag")))
 
-(defn on-loaded-workbook [app owner wb]
+(defn on-loaded-workbook [app-state owner wb]
   (if wb
-    (om/transact! app #(-> (assoc % :workbook (prepare-workbook wb))
-                           (assoc-in [:workbooks :active] false)))
+    (om/transact! app-state #(-> (assoc % :workbook (prepare-workbook wb))
+                                 (assoc-in [:workbooks :active] false)))
     (alert! owner :warning
             (d/span "Workbook not found. Please go "
               (d/a {:href "#" :class "alert-link"
@@ -176,9 +179,9 @@
                 "home")
               "."))))
 
-(defcomponent app [app owner]
+(defcomponent app [app-state owner]
   (will-mount [_]
-    (history/loop app owner)
+    (history/loop app-state owner)
     (auth/sign-in-loop owner)
     (auth/sign-out-loop owner)
     (service-documents-loop owner)
@@ -188,24 +191,35 @@
     (put-loop owner)
     (load-count-loop (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
-    (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app owner %))
+    (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app-state owner %))
     (load-all-service-documents owner))
   (will-unmount [_]
     (bus/unlisten-all owner)
     (async/close! (om/get-shared owner :count-load-ch)))
   (render [_]
-    (if-let [wb (:workbook app)]
+    (if-let [wb (:workbook app-state)]
       (d/div
-        (om/build item-dialog (:item-dialog app))
-        (om/build navbar (:navbar app))
-        (om/build alert (:alert app))
-        (om/build workbooks (:workbooks app))
+        (om/build item-dialog (:item-dialog app-state))
+        (om/build navbar (:navbar app-state))
+        (om/build alert (:alert app-state))
+        (om/build workbooks (:workbooks app-state))
         (om/build workbook wb))
       (d/div
-        (om/build item-dialog (:item-dialog app))
-        (om/build navbar (:navbar app))
-        (om/build alert (:alert app))
-        (om/build workbooks (:workbooks app))))))
+        (om/build item-dialog (:item-dialog app-state))
+        (om/build navbar (:navbar app-state))
+        (om/build alert (:alert app-state))
+        (om/build workbooks (:workbooks app-state))))))
+
+(defnk on-history-tx
+  "Workbook version advances.
+
+  Save the old state as point in history so that one can go back there."
+  [old-state]
+  (swap! app-history conj old-state)
+  (->> (map :workbook @app-history)
+       (map :head)
+       (map :id)
+       (apply println "history:")))
 
 (om/root app app-state
   {:target (dom/getElement "app")
@@ -216,6 +230,13 @@
             :links (atom {})
             :forms (atom {})}
    :tx-listen
-   (fn [{:keys [path old-value new-value tag]} _]
-     (when (= :query tag)
-       (println "TX at" path ": " old-value "->" new-value)))})
+   (fn [{:keys [path old-value new-value tag] :as tx} _]
+     (condp = tag
+
+       :history
+       (on-history-tx tx)
+
+       :query
+       (println "TX at" path ": " old-value "->" new-value)
+
+       (do)))})

@@ -8,10 +8,10 @@
 
 ;; ---- Nav -------------------------------------------------------------------
 
-(defcomponent nav-item [item]
+(defcomponent nav-item [item owner]
   (render [_]
     (d/li (when (:active item) {:class "active"})
-      (d/a {:role "button"} (:name item)))))
+      (d/a {:href "#" :on-click (h ((:handler item) owner))} (:name item)))))
 
 (defcomponent nav [nav]
   (render [_]

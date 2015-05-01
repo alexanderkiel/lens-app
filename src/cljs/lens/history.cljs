@@ -21,17 +21,17 @@
 (defn loop
   "Listens on :route expecting maps with :handler and :params where :params is
   a map from param to value."
-  [app owner]
+  [app-state owner]
   (let [history (create-history)
         nav (util/listen history EventType/NAVIGATE)]
     (go-loop []
       (when-let [token (.-token (<! nav))]
         (when-letk [[handler & more] (bidi/match-route routes token)]
-          (let [req {:app app :owner owner :params (:route-params more)}]
+          (let [req {:app-state app-state :owner owner
+                     :params (:route-params more)}]
             ((handler/handlers handler) req)))
         (recur)))
     (bus/listen-on owner :route
-      (fn [m]
-        (when-let [match (bidi/unmatch-pair routes m)]
-          (.setToken history match))))
+      #(when-let [match (bidi/unmatch-pair routes %)]
+         (.setToken history match)))
     (.setEnabled history true)))

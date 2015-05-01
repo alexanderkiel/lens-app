@@ -1,7 +1,9 @@
 (ns lens.workbook
-  (:require-macros [plumbing.core :refer [fnk]]
+  (:require-macros [cljs.core.async.macros :refer [go-loop]]
+                   [plumbing.core :refer [fnk]]
                    [lens.macros :refer [h]])
-  (:require [om.core :as om :include-macros true]
+  (:require [cljs.core.async :as async :refer [<!]]
+            [om.core :as om :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [cljsjs.dimple]
@@ -162,8 +164,22 @@
 
 (defn cell-adder [owner query-idx col-idx]
   (d/p {:class "text-muted"}
-    (d/a {:href "#" :on-click (h (show-item-dialog! owner query-idx col-idx))}
+    (d/a {:href "#" :class "cell-adder"
+          :on-click (h (show-item-dialog! owner query-idx col-idx))}
       "Add a cell...")))
+
+(defn col-contains-cell? [owner cell]
+  (some #{(:id cell)} (map :id (om/get-props owner :cells))))
+
+(defn duplicate-cell-warning [cell]
+  (str "Can't add cell " (:id cell) " because it's already there."))
+
+(defn on-add-cell
+  "Tests if the cell can be added and fires an ::add-cell event if so."
+  [owner query-idx idx cell]
+  (if (col-contains-cell? owner cell)
+    (alert! owner :warning (duplicate-cell-warning cell))
+    (bus/publish! owner ::add-cell [query-idx idx cell])))
 
 (defcomponent query-grid-col
   "A column of query cells in the query grid.
@@ -172,11 +188,7 @@
   [{:keys [idx] :as col} owner {:keys [query-idx] :as opts}]
   (will-mount [_]
     (bus/listen-on owner [::add-cell query-idx idx]
-      (fn [cell]
-        (if (some #{(:id cell)} (map :id (om/get-props owner :cells)))
-          (alert! owner :warning (str "Can't add cell " (:id cell) " because it's already there."))
-          (do (bus/publish! owner ::add-cell [query-idx idx cell])
-              (om/transact! col :cells #(conj % cell))))))
+      #(on-add-cell owner query-idx idx %))
     (bus/listen-on owner [::remove-cell query-idx idx]
       (fn [id]
         (bus/publish! owner ::remove-cell [query-idx idx id])
@@ -283,8 +295,22 @@
     :term-id (:id cell)}
    :result-topic ::new-version})
 
+(defn add-cell
+  "Adds the cell to the query with query-idx and column with col-idx in version.
+
+  Appends an ::add-cell transaction to the :open-txs of the version."
+  [version [query-idx col-idx cell]]
+  (-> (update-in version [:queries query-idx :query-grid :cols col-idx :cells]
+                 #(conj % cell))
+      (update-in [:open-txs] #(conj (or % cljs.core.PersistentQueue/EMPTY)
+                                    [::add-cell query-idx col-idx cell]))))
+
 (defn post-add-cell! [owner msg]
-  (bus/publish! owner :post (add-query-cell-msg (om/get-props owner) msg)))
+  (let [version (om/get-props owner)]
+    (when (empty? (:open-txs version))
+      (bus/publish! owner :post (add-query-cell-msg version msg))
+      (bus/publish! owner ::out-of-sync true))
+    (om/transact! version [] #(add-cell % msg) :history)))
 
 (defn remove-query-cell-msg [version [query-idx idx id]]
   {:action (-> version :forms :lens/remove-query-cell :action)
@@ -308,14 +334,49 @@
           :on-click (h (bus/publish! owner :post (add-query-msg version)))}
       "Add a query...")))
 
-(defcomponent version [version owner]
+(defn out-of-sync-loop
+  "Listens for ::out-of-sync events and sets the local :out-of-sync state
+  according.
+
+  Waits for 500 ms before it activates the local :out-of-sync state."
+  [owner]
+  (let [ch (async/chan)]
+    (bus/register-for-unlisten owner ::out-of-sync ch)
+    (async/sub (bus/publication owner) ::out-of-sync ch)
+    (go-loop [ports [ch]]
+      (let [[val port] (async/alts! ports)]
+        (if (= ch port)
+          (when val
+            (if (:msg val)
+              (recur (if (= 2 (count ports)) ports [ch (async/timeout 500)]))
+              (do
+                (om/set-state! owner :out-of-sync false)
+                (recur [ch]))))
+          (do
+            (om/set-state! owner :out-of-sync true)
+            (recur [ch])))))))
+
+(defcomponent version
+  "Component which holds a version of a workbook.
+
+  It consists of two parts, a list of queries and a query adder, both wrapped in
+  a container-fluid.
+
+  The component also manages updates of its version. It listens on update events
+  from subcomponents and delegates them to the server. All updates lead to a
+  ::new-version event which is than handled by its parent component the
+  workbook."
+  [version owner]
   (will-mount [_]
     (bus/listen-on owner ::add-cell #(post-add-cell! owner %))
-    (bus/listen-on owner ::remove-cell #(post-remove-cell! owner %)))
+    (bus/listen-on owner ::remove-cell #(post-remove-cell! owner %))
+    (out-of-sync-loop owner))
   (will-unmount [_]
     (bus/unlisten-all owner))
-  (render [_]
+  (render-state [_ {:keys [out-of-sync]}]
     (d/div {:class "container-fluid"}
+      (when out-of-sync
+        (d/div {:class "alert alert-warning" :role "alert"} "Out of sync!"))
       (apply d/div (om/build-all query (:queries version)))
       (query-adder version owner))))
 
@@ -333,19 +394,45 @@
   the workbook to point to that new version."
   [owner {:keys [id] :as new-version}]
   (let [workbook (om/get-props owner)]
-    (om/transact! workbook :head #(assoc % :links (:links new-version)
-                                           :forms (:forms new-version)
-                                           :id (:id new-version)))
+    (om/transact! workbook :head
+                  #(-> (assoc % :id id
+                                :links (:links new-version)
+                                :forms (:forms new-version))
+                       (update-in [:open-txs] pop)))
+    (bus/publish! owner ::out-of-sync false)
     (bus/publish! owner :put (update-workbook-msg workbook id))))
 
-(defcomponent workbook [workbook owner]
+(defn on-undo
+  "Updates the workbook with the parent of its head which is exactly what an
+  undo should do."
+  [owner]
+  (let [workbook (om/get-props owner)]
+    (bus/publish! owner :put (update-workbook-msg workbook id))))
+
+(defn on-workbook-updated [workbook wb]
+  (om/update! workbook :etag ((meta wb) "etag")))
+
+(defn load-head-msg
+  "Message for :load topic loading the head of the workbook."
+  [workbook]
+  {:uri (-> workbook :links :lens/head :href) :loaded-topic ::loaded-version})
+
+(defcomponent workbook
+  "Component which represents a workbook showing its head through the version
+  component.
+
+  Loads the head of the workbook on mounting. A central routing should remount
+  the component on each new workbook.
+
+  Listens also on ::new-version which fires every time the version of a workbook
+  is advanced. See doc of on-new-version for more information."
+  [workbook owner]
   (will-mount [_]
-    (bus/listen-on owner :loaded-version #(on-loaded-version workbook %))
+    (bus/listen-on owner ::loaded-version #(on-loaded-version workbook %))
     (bus/listen-on owner ::new-version #(on-new-version owner %))
-    (bus/listen-on owner ::workbook-updated
-      (fn [wb] (om/update! workbook :etag ((meta wb) "etag"))))
-    (bus/publish! owner :load {:uri (-> workbook :links :lens/head :href)
-                               :loaded-topic :loaded-version}))
+    (bus/listen-on owner :undo #(on-undo owner))
+    (bus/listen-on owner ::workbook-updated #(on-workbook-updated workbook %))
+    (bus/publish! owner :load (load-head-msg workbook)))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (render [_]

@@ -6,9 +6,9 @@
   (:require [om.core :as om :include-macros true]
             [lens.event-bus :as bus]))
 
-(defnk index [app]
-  (om/transact! app #(->(dissoc % :workbook)
-                        (assoc-in [:workbooks :active] true))))
+(defnk index [app-state]
+  (om/transact! app-state #(-> (dissoc % :workbook)
+                               (assoc-in [:workbooks :active] true))))
 
 (defnk find-wb-query [id]
   {:form-rel :lens/find-workbook

@@ -1,4 +1,12 @@
 (ns lens.event-bus
+  "Global Events:
+
+  :route - go to handler
+    {:handler :index}
+    {:handler :workbook :params {:id ...}}
+
+  :undo - undo action
+    {}"
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [cljs.core.async :as async :refer [<!]]
             [om.core :as om]))
@@ -14,11 +22,14 @@
     {:publisher publisher
      :publication (async/pub publisher #(:topic %))}))
 
+(defn register-for-unlisten [owner topic ch]
+  (om/update-state! owner ::subs #(conj % [topic ch])))
+
 (defn listen-on
   "Listens on a topic of the publication. Calls the callback with the message."
   [owner topic callback]
   (let [ch (async/chan)]
-    (om/update-state! owner ::subs #(assoc % topic ch))
+    (register-for-unlisten owner topic ch)
     (async/sub (publication owner) topic ch)
     (go-loop []
       (when-let [{:keys [msg]} (<! ch)]
@@ -49,6 +60,7 @@
   [owner topic-callback-map start]
   (let [ch (async/chan)]
     (doseq [[topic] topic-callback-map]
+      (register-for-unlisten owner topic ch)
       (async/sub (publication owner) topic ch))
     (go-loop [result start]
       (when-let [{:keys [topic msg]} (<! ch)]
@@ -56,7 +68,8 @@
 
 (defn unlisten-all [owner]
   (doseq [[topic ch] (om/get-state owner ::subs)]
-    (async/unsub (publication owner) topic ch)))
+    (async/unsub (publication owner) topic ch)
+    (async/close! ch)))
 
 (defn publish! [owner topic msg]
   (async/put! (publisher owner) {:topic topic :msg msg}))
