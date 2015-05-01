@@ -44,6 +44,8 @@
     (bus/listen-on owner :private-workbooks/created #(hide! dialog)))
   (did-update [_ _ _]
     (.focus (om/get-node owner "name")))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render [_]
     (d/div {:class "modal"
             :style {:display (if (:visible dialog) "block" "none")}

@@ -25,18 +25,19 @@
 
 (defcomponent item-dialog [item-dialog owner]
   (will-mount [_]
-    (go-loop []
-      (bus/listen-on owner ::show
-        (fn [target-topic]
-          (om/set-state! owner :target-topic target-topic)
-          (om/update! item-dialog :display "block")))
-      (bus/listen-on owner ::close
-        (fn [_]
-          (om/update! item-dialog :display "none")))
-      (bus/listen-on owner ::save
-        (fn [term]
-          (bus/publish! owner (om/get-state owner :target-topic) term)
-          (om/update! item-dialog :display "none")))))
+    (bus/listen-on owner ::show
+      (fn [target-topic]
+        (om/set-state! owner :target-topic target-topic)
+        (om/update! item-dialog :display "block")))
+    (bus/listen-on owner ::close
+      (fn [_]
+        (om/update! item-dialog :display "none")))
+    (bus/listen-on owner ::save
+      (fn [term]
+        (bus/publish! owner (om/get-state owner :target-topic) term)
+        (om/update! item-dialog :display "none"))))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render [_]
     (d/div {:id "item-dialog"
             :class "modal"

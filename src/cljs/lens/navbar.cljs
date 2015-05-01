@@ -20,7 +20,7 @@
 
 ;; ---- Sign In/Out -----------------------------------------------------------
 
-(defcomponent sign-in-form [form owner]
+(defcomponent sign-in-form [_ owner]
   (init-state [_]
       {:username ""
        :password ""
@@ -30,11 +30,16 @@
       #(do
         (om/set-state! owner :username "")
         (om/set-state! owner :password ""))))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
+  (did-update [_ _ _]
+    (when (om/get-state owner :expanded)
+      (.focus (om/get-node owner "username"))))
   (render-state [_ {:keys [username password expanded] :as state}]
     (if expanded
       (d/form {:class "navbar-form navbar-right"}
         (d/div {:class "form-group"}
-          (d/input {:type "text" :class "form-control"
+          (d/input {:type "text" :class "form-control" :ref "username"
                     :placeholder "Username"
                     :value username
                     :on-change
@@ -61,6 +66,8 @@
   (will-mount [_]
     (bus/listen-on owner :signed-in #(om/update! sign-in-out %))
     (bus/listen-on owner :signed-out #(om/update! sign-in-out {})))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render [_]
     (if (:username sign-in-out)
       (d/p {:class "navbar-text navbar-right"}

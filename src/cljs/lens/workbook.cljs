@@ -215,6 +215,8 @@
       (fn [query-expr]
         (println :result :execute-query query-expr)
         (execute-query query-form query-expr result))))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (did-update [_ _ _]
     (println :result :did-update)
     (when-let [result (:result result)]
@@ -339,6 +341,8 @@
       (fn [wb] (om/update! workbook :etag ((meta wb) "etag"))))
     (bus/publish! owner :load {:uri (-> workbook :links :lens/head :href)
                                :loaded-topic :loaded-version}))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render [_]
     (util/set-title! (str (:name workbook) " - Lens"))
     (when-let [head (:head workbook)] (om/build version head))))

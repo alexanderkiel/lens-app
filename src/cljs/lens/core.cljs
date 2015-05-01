@@ -182,6 +182,7 @@
     (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app %))
     (load-all-service-documents owner))
   (will-unmount [_]
+    (bus/unlisten-all owner)
     (async/close! (om/get-shared owner :count-load-ch)))
   (render [_]
     (if-let [wb (:workbook app)]

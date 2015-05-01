@@ -73,6 +73,8 @@
     (add-created-workbook! wbs owner :private-workbooks)
     (bus/listen-on owner :signed-in #(on-signed-in owner))
     (bus/listen-on owner :sign-out #(on-sign-out wbs)))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render [_]
     (when (:active wbs) (util/set-title! "Lens"))
     (d/div {:class "container-fluid"

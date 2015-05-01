@@ -18,6 +18,8 @@
     (bus/listen-on owner :alert
       (fnk [level msg]
         (om/update-state! owner #(assoc % :level level :msg msg)))))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render-state [_ {:keys [level msg]}]
     (when level
       (d/div {:class "container-fluid"}

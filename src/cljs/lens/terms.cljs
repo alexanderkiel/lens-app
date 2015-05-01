@@ -257,6 +257,8 @@
               (load-childs terms term)))
           (recur))))
     (search-result-loop terms (om/get-state owner :search-result-ch)))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render-state [_ {:keys [open return-ch search-result-ch]}]
     (d/div
       (om/build return-stack (:return-stack terms)
