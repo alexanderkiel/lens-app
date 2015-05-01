@@ -55,7 +55,7 @@
       (d/div {:class "col-md-12"}
         (d/h4 {:class "text-uppercase text-muted"}
               (fa/span (if collapsed :chevron-right :chevron-down))
-              (d/span (str " " headline)))))))
+              (str " " headline))))))
 
 ;; ---- Query Grid ------------------------------------------------------------
 
@@ -162,16 +162,29 @@
         :item-group (om/build item-group term {:opts opts})
         :item (om/build item term {:opts opts})))))
 
+(defn show-item-dialog! [owner query-idx col-idx]
+  (item-dialog/show! owner [::add-cell query-idx col-idx]))
+
+(defn cell-adder [owner query-idx col-idx]
+  (d/p {:class "text-muted"}
+    (d/a {:href "#" :on-click (h (show-item-dialog! owner query-idx col-idx))}
+      "Add a cell...")))
+
 (defcomponent query-grid-col [{:keys [idx] :as col} owner
                               {:keys [query-idx] :as opts}]
   (will-mount [_]
+    (println "mount col" query-idx idx)
     (bus/listen-on owner [::add-cell query-idx idx]
       (fn [cell]
+        (println "add cell" query-idx idx (:id cell))
         (bus/publish! owner ::add-cell [query-idx idx cell])
         (om/transact! col :cells #(conj % cell))))
     (bus/listen-on owner [:remove-cell query-idx idx]
       (fn [id]
         (om/transact! col :cells #(filterv (comp (partial not= id) :id) %)))))
+  (will-unmount [_]
+    (println "unmount col" query-idx idx)
+    (bus/unlisten-all owner))
   (did-update [_ old _]
     (println :query-grid-col :did-update
              (count (:cells old)) "->" (count (:cells col))))
@@ -180,9 +193,7 @@
     (d/div {:class "col-md-4"}
       (apply d/div (om/build-all query-grid-cell (:cells col)
                                  {:opts (assoc opts :col-idx idx)}))
-      (d/div {:class "query-cell query-cell-empty"}
-        (d/span {:class "fa fa-plus-circle" :role "button"
-                 :on-click (h (item-dialog/show! owner [::add-cell query-idx idx]))})))))
+      (cell-adder owner query-idx idx))))
 
 (defcomponent query-grid [query-grid _ {:keys [query-idx collapsed] :as opts}]
   (render [_]
@@ -243,25 +254,14 @@
         (bus/publish! owner [:query-updated idx] new-query-expr))))
   (render [_]
     (println "render query" idx)
-    (apply d/div {:class "container-fluid query"}
-           (om/build headline (:name query) {:opts {:collapsed collapsed}})
+    (apply d/div
+           (om/build headline (or (:name query) (str "Query " (inc idx))) {:opts {:collapsed collapsed}})
            (om/build query-grid (:query-grid query)
                      {:opts (assoc opts :query-idx idx :collapsed collapsed)})
            (om/build-all result (:result-list query)
                          {:opts (assoc opts :query-idx idx :collapsed collapsed)}))))
 
 ;; ---- Workbook --------------------------------------------------------------
-
-(defn ensure-3 [cols]
-  (if (< (count cols) 3)
-    (recur (conj cols {:cells []}))
-    cols))
-
-(defn ensure-3-cols [query]
-  (update-in query [:query-grid :cols] ensure-3))
-
-(defn ensure-3-cols-per-query [version]
-  (update-in version [:queries] #(mapv ensure-3-cols %)))
 
 (defn assoc-idx [idx x]
   (assoc x :idx idx))
@@ -274,29 +274,43 @@
   (update-in version [:queries] #(vec (map-indexed index-query %))))
 
 (defn on-loaded-version [workbook version]
-  (->> (ensure-3-cols-per-query version)
-       (index-queries-and-cols)
+  (->> (index-queries-and-cols version)
        (om/update! workbook :head)))
 
-(defn new-version-msg [action query-idx idx cell]
-  {:action action
+(defn add-query-cell-msg [version query-idx idx cell]
+  {:action (-> version :forms :lens/add-query-cell :action)
    :params
    {:query-idx query-idx
     :col-idx idx
     :term-type (name (:type cell))
     :term-id (:id cell)}
-   :result-topic
-   ::new-version})
+   :result-topic ::new-version})
+
+(defn add-query-msg [version]
+  {:action (-> version :forms :lens/add-query :action)
+   :result-topic ::new-version})
+
+(defn query-adder [version owner]
+  (d/p {:class "text-uppercase text-muted"}
+    (fa/span :chevron-right) " "
+    (d/a {:href "#"
+          :on-click (h (bus/publish! owner :post (add-query-msg version)))}
+      "Add a query...")))
 
 (defcomponent version [version owner]
   (will-mount [_]
+    (println "mount version" (:id version))
     (bus/listen-on owner ::add-cell
       (fn [[query-idx idx cell]]
-        (if-let [action (-> (om/get-props owner) :forms :lens/add-query-cell :action)]
-          (bus/publish! owner :post (new-version-msg action query-idx idx cell))
-          (alert/internal-error! owner 1)))))
+        (bus/publish! owner :post (add-query-cell-msg (om/get-props owner)
+                                                      query-idx idx cell)))))
+  (will-unmount [_]
+    (println "unmount version" (:id version))
+    (bus/unlisten-all owner))
   (render [_]
-    (apply d/div (om/build-all query (:queries version)))))
+    (d/div {:class "container-fluid"}
+      (apply d/div (om/build-all query (:queries version)))
+      (query-adder version owner))))
 
 (defn update-workbook-msg [workbook version-id]
   {:action (-> workbook :links :self :href)

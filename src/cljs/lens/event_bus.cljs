@@ -18,6 +18,7 @@
   "Listens on a topic of the publication. Calls the callback with the message."
   [owner topic callback]
   (let [ch (async/chan)]
+    (om/update-state! owner ::subs #(assoc % topic ch))
     (async/sub (publication owner) topic ch)
     (go-loop []
       (when-let [{:keys [msg]} (<! ch)]
@@ -52,6 +53,10 @@
     (go-loop [result start]
       (when-let [{:keys [topic msg]} (<! ch)]
         (recur ((topic-callback-map topic) result msg))))))
+
+(defn unlisten-all [owner]
+  (doseq [[topic ch] (om/get-state owner ::subs)]
+    (async/unsub (publication owner) topic ch)))
 
 (defn publish! [owner topic msg]
   (async/put! (publisher owner) {:topic topic :msg msg}))

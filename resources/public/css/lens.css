@@ -4,6 +4,10 @@ body {
   background-color: #E5E5E5;
 }
 
+a {
+  color: inherit;
+}
+
 /* ---- Navigation --------------------------------------------------------- */
 
 /* Fix for: https://github.com/twbs/bootstrap/issues/15706 */

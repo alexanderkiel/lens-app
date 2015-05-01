@@ -139,9 +139,11 @@
 
 (defn post-loop [owner]
   (bus/listen-on owner :post
-    (fnk [action params result-topic]
+    (fnk [action result-topic & more]
       (assert action)
-      (-> {:url action :data params
+      (assert result-topic)
+      (println "post-loop post to" action)
+      (-> {:url action :data (:params more)
            :on-complete (fn [result] (bus/publish! owner result-topic result))}
           (auth/assoc-auth-token)
           (io/post-form)))))
