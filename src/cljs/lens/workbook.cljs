@@ -7,7 +7,6 @@
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [cljsjs.dimple]
-            [lens.io :as io]
             [lens.fa :as fa]
             [lens.item-dialog :as item-dialog]
             [goog.dom :as dom]
@@ -43,9 +42,9 @@
 (defn execute-query!
   "Executes the query expr and publishes the result on result-topic."
   [owner expr result-topic]
-  (bus/publish! owner :post {:form-rel :lens/query
-                             :params {:expr expr}
-                             :result-topic result-topic}))
+  (bus/publish! owner :query {:form-rel :lens/query
+                              :params {:expr expr}
+                              :loaded-topic result-topic}))
 
 ;; ---- Headline --------------------------------------------------------------
 
@@ -145,7 +144,15 @@
   (assoc state :hover false :dropdown-hover false :dropdown-active false))
 
 (defcomponent query-grid-cell
-  "A cell in a query grid."
+  "A cell in a query grid.
+
+  Renders a term which can be a form, an item-group or an item. Terms coming
+  from the item dialog have already properties like :name or :question. Terms
+  which are loaded from the workbook do not have such properties. In a workbook
+  only the :type and the :id of a term is saved.
+
+  If :name or :question is missing, this information has to be loaded from the
+  warehouse."
   [{:keys [id] :as term} owner {:keys [query-idx col-idx] :as opts}]
   (init-state [_]
     {:hover false

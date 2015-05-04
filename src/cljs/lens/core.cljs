@@ -110,10 +110,11 @@
 (defn query!
   "Issues a query to action with params and publishes the result under
   loaded-topic."
-  [owner action params loaded-topic]
-  {:pre [owner action loaded-topic]}
-  (-> {:url action :data params
-       :on-complete #(bus/publish! owner loaded-topic %)}
+  [owner action more]
+  {:pre [owner action (:loaded-topic more)]}
+  (-> {:url action :data (:params more)
+       :snapshot (:snapshot more)
+       :on-complete #(bus/publish! owner (:loaded-topic more) %)}
       (auth/assoc-auth-token)
       (io/get-form)))
 
@@ -124,18 +125,17 @@
   [owner]
   (bus/listen-on-mult owner
     {:query
-     (fn [unresolvables {:keys [action form-rel params loaded-topic] :as msg}]
+     (fn [unresolvables {:keys [action form-rel] :as msg}]
        (assert (or action form-rel))
        (if-let [action (or action (resolv-action owner form-rel))]
-         (do (query! owner action params loaded-topic) unresolvables)
+         (do (query! owner action msg) unresolvables)
          (conj unresolvables msg)))
      :service-document-loaded
      (fn [unresolvables]
        (reduce
-         (fn [unresolvables {:keys [form-rel params loaded-topic]
-                             :as unresolvable}]
+         (fn [unresolvables {:keys [form-rel] :as unresolvable}]
            (if-let [action (resolv-action owner form-rel)]
-             (do (query! owner action params loaded-topic) unresolvables)
+             (do (query! owner action unresolvable) unresolvables)
              (conj unresolvables unresolvable)))
          #{}
          unresolvables))}

@@ -47,13 +47,17 @@
 (defn- assoc-authorization [m token]
   (assoc-when m "Authorization" (some->> token (str "Bearer "))))
 
+(defn- assoc-snapshot [m snapshot]
+  (assoc-when m "X-Lens-Snapshot" snapshot))
+
 (defnk get-xhr [url on-complete :as req]
   (let [xhr (XhrIo.)]
     (events/listen xhr goog.net.EventType.COMPLETE
                    (response-handler xhr url on-complete))
     (. xhr
       (send url "GET" nil (clj->js (-> {"Accept" "application/edn"}
-                                       (assoc-authorization (:token req))))))))
+                                       (assoc-authorization (:token req))
+                                       (assoc-snapshot (:snapshot req))))))))
 
 (defn url-encode [s]
   (some-> s str (js/encodeURIComponent) (.replace "+" "%20")))
@@ -63,13 +67,14 @@
          (str/join "=" [(name k) (url-encode v)]))
        (str/join "&")))
 
-(defn get-form [{:keys [url data on-complete]}]
+(defnk get-form [url data on-complete :as req]
   (let [xhr (XhrIo.)]
     (events/listen xhr goog.net.EventType.COMPLETE
                    (response-handler xhr url on-complete))
     (. xhr
       (send (str url "?" (pr-form-data data)) "GET" nil
-        #js {"Accept" "application/edn"}))))
+        (clj->js (-> {"Accept" "application/edn"}
+                     (assoc-snapshot (:snapshot req))))))))
 
 (defnk post-form [url data on-complete :as req]
   (let [xhr (XhrIo.)]
