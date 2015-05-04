@@ -44,6 +44,7 @@
   [owner expr result-topic]
   (bus/publish! owner :query {:form-rel :lens/query
                               :params {:expr expr}
+                              :snapshot (util/get-most-recent-snapshot-id owner)
                               :loaded-topic result-topic}))
 
 ;; ---- Headline --------------------------------------------------------------

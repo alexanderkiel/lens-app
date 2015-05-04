@@ -209,6 +209,14 @@
       (om/refresh! owner)
       (recur))))
 
+(defn load-all-snapshots [owner]
+  (bus/publish! owner :load {:link-rel :lens/all-snapshots
+                             :loaded-topic :loaded-snapshots}))
+
+(defn on-loaded-snapshots [owner doc]
+  (let [snapshots (:lens/snapshots (:embedded doc))]
+    (reset! (om/get-shared owner :snapshots) snapshots)))
+
 (defcomponent app [app-state owner]
   (will-mount [_]
     (history-loop app-state owner)
@@ -223,7 +231,9 @@
     (load-count-loop (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
     (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app-state owner %))
-    (load-all-service-documents owner))
+    (bus/listen-on owner :loaded-snapshots #(on-loaded-snapshots owner %))
+    (load-all-service-documents owner)
+    (load-all-snapshots owner))
   (will-unmount [_]
     (bus/unlisten-all owner)
     (async/close! (om/get-shared owner :count-load-ch)))
@@ -255,7 +265,8 @@
             :item-dialog-ch (chan)
             :event-bus (bus/init-bus)
             :links (atom {})
-            :forms (atom {})}
+            :forms (atom {})
+            :snapshots (atom [])}
    :tx-listen
    (fn [{:keys [path old-value new-value tag] :as tx} _]
      (condp = tag

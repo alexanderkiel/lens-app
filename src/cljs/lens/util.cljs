@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [cljs.core.async :refer [chan put!]]
             [plumbing.core :refer [assoc-when]]
-            [goog.events :as events]))
+            [goog.events :as events]
+            [om.core :as om]))
 
 (defn add-soft-hyphen
   "Adds U+00AD soft hyphens after certain chars in string in order to
@@ -36,3 +37,6 @@
 (defn set-title! [title]
   (when-not (= title (.-title js/document))
     (set! (.-title js/document) title)))
+
+(defn get-most-recent-snapshot-id [owner]
+  (:id (first @(om/get-shared owner :snapshots))))
