@@ -3,3 +3,5 @@
 
 (defn app [dev]
   (routes dev))
+
+(def app-dev (app true))

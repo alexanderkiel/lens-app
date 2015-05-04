@@ -5,8 +5,8 @@
 
 (defn index-html [dev]
   (if dev
-    "public/html/index-dev.html"
-    "public/html/index.html"))
+    "public/index-dev.html"
+    "public/index.html"))
 
 ;; ---- Routes ----------------------------------------------------------------
 

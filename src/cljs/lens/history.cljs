@@ -18,12 +18,12 @@
     (.setUseFragment false)
     (.setPathPrefix "")))
 
-(defn loop
+(defn history-loop
   "Listens on :route expecting maps with :handler and :params where :params is
   a map from param to value."
   [app-state owner]
   (let [history (create-history)
-        nav (util/listen history EventType/NAVIGATE)]
+        nav (util/listen history EventType.NAVIGATE)]
     (go-loop []
       (when-let [token (.-token (<! nav))]
         (when-letk [[handler & more] (bidi/match-route routes token)]

@@ -233,6 +233,9 @@
 (defn find-active-term [terms]
   (first (filter :active (-> terms :list :terms))))
 
+(defn clean-term [term]
+  (dissoc term :childs :search-childs :parent :active :embedded :forms :links))
+
 (defcomponent terms
   "The terms component consists of a return stack, a search field and a terms
   list."

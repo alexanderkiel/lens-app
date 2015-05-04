@@ -78,7 +78,6 @@
 
 (defcomponent navbar [navbar owner]
   (render [_]
-    (println navbar)
     (d/div {:class "navbar navbar-default navbar-fixed-top"
             :role "navigation"}
       (d/div {:class "container-fluid"}

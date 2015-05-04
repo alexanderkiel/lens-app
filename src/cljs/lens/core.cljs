@@ -5,12 +5,13 @@
   (:require [plumbing.core :refer [assoc-when]]
             [cljs.core.async :as async :refer [put! chan <!]]
             [goog.dom :as dom]
+            [goog.events :as events]
             [om.core :as om :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.io :as io]
             [lens.auth :as auth]
-            [lens.history :as history]
+            [lens.history :refer [history-loop]]
             [lens.event-bus :as bus]
             [lens.navbar :refer [navbar]]
             [lens.item-dialog :refer [item-dialog]]
@@ -21,7 +22,7 @@
 
 (enable-console-print!)
 
-(def app-state
+(defonce app-state
   (atom
     {:navbar
      {:nav
@@ -37,7 +38,7 @@
      :workbooks
      {}}))
 
-(def app-history (atom []))
+(defonce app-history (atom []))
 
 (defn load-service-document [owner service]
   (io/get-xhr {:url service
@@ -179,9 +180,20 @@
                 "home")
               "."))))
 
+(defonce figwheel-reload-ch
+  (let [ch (chan)]
+    (events/listen (.-body js/document) "figwheel.js-reload" #(put! ch %))
+    ch))
+
+(defn figwheel-reload-loop [owner]
+  (go-loop []
+    (when (<! figwheel-reload-ch)
+      (om/refresh! owner)
+      (recur))))
+
 (defcomponent app [app-state owner]
   (will-mount [_]
-    (history/loop app-state owner)
+    (history-loop app-state owner)
     (auth/sign-in-loop owner)
     (auth/sign-out-loop owner)
     (service-documents-loop owner)
@@ -189,6 +201,7 @@
     (query-loop owner)
     (post-loop owner)
     (put-loop owner)
+    (figwheel-reload-loop owner)
     (load-count-loop (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
     (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app-state owner %))

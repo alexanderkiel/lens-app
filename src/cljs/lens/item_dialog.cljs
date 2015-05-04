@@ -58,4 +58,5 @@
                        :on-click (h (->> (:terms item-dialog)
                                          (terms/find-active-term)
                                          (deref)
+                                         (terms/clean-term)
                                          (save! owner)))} "Choose")))))))

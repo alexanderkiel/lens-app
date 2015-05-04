@@ -51,13 +51,33 @@
 
 ;; ---- Headline --------------------------------------------------------------
 
-(defcomponent headline [headline _ {:keys [collapsed]}]
-  (render [_]
+(defn remove-query-msg [idx]
+  {:form-rel :lens/remove-query
+   :params {:idx idx}
+   :state-fn
+   (fn [version]
+     (update-in version [:queries] #(->> (concat (take idx %) (drop (inc idx) %))
+                                         (map-indexed (fn [i q] (assoc q :idx i)))
+                                         (vec))))})
+
+(defn query-remove-button [owner idx]
+  (d/span {:class "fa fa-minus-circle"
+           :role "button"
+           :style {:margin-left "10px"}
+           :on-click (h (bus/publish! owner ::tx (remove-query-msg idx)))}))
+
+(defcomponent headline [headline owner {:keys [idx collapsed]}]
+  (render-state [_ {:keys [hover]}]
     (d/div {:class "row"}
-      (d/div {:class "col-md-12"}
+      (d/div {:class "col-md-12"
+              :on-mouse-enter #(om/set-state! owner :hover true)
+              :on-mouse-leave #(om/set-state! owner :hover false)}
         (d/h4 {:class "text-uppercase text-muted"}
-              (fa/span (if collapsed :chevron-right :chevron-down))
-              (str " " headline))))))
+          (fa/span (if collapsed :chevron-right :chevron-down))
+          (d/span {:style {:margin-right "5px"}})
+          headline
+          (when hover
+            (query-remove-button owner idx)))))))
 
 ;; ---- Query Grid ------------------------------------------------------------
 
@@ -174,12 +194,36 @@
 (defn duplicate-cell-warning [cell]
   (str "Can't add cell " (:id cell) " because it's already there."))
 
+(defn add-cell [query-idx col-idx cell]
+  (fn [version]
+    (update-in version [:queries query-idx :query-grid :cols col-idx :cells]
+               #(conj % cell))))
+
 (defn on-add-cell
-  "Tests if the cell can be added and fires an ::add-cell event if so."
+  "Tests if the cell can be added and fires an ::tx event if so."
   [owner query-idx idx cell]
   (if (col-contains-cell? owner cell)
     (alert! owner :warning (duplicate-cell-warning cell))
-    (bus/publish! owner ::add-cell [query-idx idx cell])))
+    (bus/publish! owner ::tx
+                  {:form-rel :lens/add-query-cell
+                   :params {:query-idx query-idx
+                            :col-idx idx
+                            :term-type (name (:type cell))
+                            :term-id (:id cell)}
+                   :state-fn (add-cell query-idx idx cell)})))
+
+(defn remove-cell [query-idx col-idx id]
+  (fn [version]
+    (update-in version [:queries query-idx :query-grid :cols col-idx :cells]
+               #(filterv (comp (partial not= id) :id) %))))
+
+(defn on-remove-cell [owner query-idx idx id]
+  (bus/publish! owner ::tx
+                {:form-rel :lens/remove-query-cell
+                 :params {:query-idx query-idx
+                          :col-idx idx
+                          :term-id id}
+                 :state-fn (remove-cell query-idx idx id)}))
 
 (defcomponent query-grid-col
   "A column of query cells in the query grid.
@@ -190,9 +234,7 @@
     (bus/listen-on owner [::add-cell query-idx idx]
       #(on-add-cell owner query-idx idx %))
     (bus/listen-on owner [::remove-cell query-idx idx]
-      (fn [id]
-        (bus/publish! owner ::remove-cell [query-idx idx id])
-        (om/transact! col :cells #(filterv (comp (partial not= id) :id) %)))))
+      #(on-remove-cell owner query-idx idx %)))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (render [_]
@@ -262,9 +304,9 @@
         (println :query :publish-new-expr :under idx)
         (bus/publish! owner [:query-updated idx] new-query-expr))))
   (render [_]
-    (println "render query" idx)
     (apply d/div
-           (om/build headline (or (:name query) (str "Query " (inc idx))) {:opts {:collapsed collapsed}})
+           (om/build headline (or (:name query) (str "Query " (inc idx)))
+                     {:opts {:idx idx :collapsed collapsed}})
            (om/build query-grid (:query-grid query)
                      {:opts (assoc opts :query-idx idx :collapsed collapsed)})
            (om/build-all result (:result-list query)
@@ -283,55 +325,40 @@
   (update-in version [:queries] #(vec (map-indexed index-query %))))
 
 (defn on-loaded-version [workbook version]
-  (->> (index-queries-and-cols version)
+  (->> (-> (index-queries-and-cols version)
+           (assoc :open-txs #queue []))
        (om/update! workbook :head)))
 
-(defn add-query-cell-msg [version [query-idx idx cell]]
-  {:action (-> version :forms :lens/add-query-cell :action)
-   :params
-   {:query-idx query-idx
-    :col-idx idx
-    :term-type (name (:type cell))
-    :term-id (:id cell)}
+(defn tx-msg [version {:keys [form-rel params]}]
+  {:action (-> version :forms form-rel :action)
+   :params params
    :result-topic ::new-version})
 
-(defn add-cell
-  "Adds the cell to the query with query-idx and column with col-idx in version.
+(defn update-state [version {:keys [state-fn] :as msg}]
+  (-> (state-fn version)
+      (update-in [:open-txs] #(conj % msg))))
 
-  Appends an ::add-cell transaction to the :open-txs of the version."
-  [version [query-idx col-idx cell]]
-  (-> (update-in version [:queries query-idx :query-grid :cols col-idx :cells]
-                 #(conj % cell))
-      (update-in [:open-txs] #(conj (or % cljs.core.PersistentQueue/EMPTY)
-                                    [::add-cell query-idx col-idx cell]))))
-
-(defn post-add-cell! [owner msg]
+(defn perform-tx! [owner msg]
   (let [version (om/get-props owner)]
     (when (empty? (:open-txs version))
-      (bus/publish! owner :post (add-query-cell-msg version msg))
+      (bus/publish! owner :post (tx-msg version msg))
       (bus/publish! owner ::out-of-sync true))
-    (om/transact! version [] #(add-cell % msg) :history)))
+    (om/transact! version [] #(update-state % msg) :history)))
 
-(defn remove-query-cell-msg [version [query-idx idx id]]
-  {:action (-> version :forms :lens/remove-query-cell :action)
-   :params
-   {:query-idx query-idx
-    :col-idx idx
-    :term-id id}
-   :result-topic ::new-version})
+(defn empty-query [idx]
+  (index-query idx {:query-grid {:cols [{} {} {}]}}))
 
-(defn post-remove-cell! [owner msg]
-  (bus/publish! owner :post (remove-query-cell-msg (om/get-props owner) msg)))
+(defn add-query-msg []
+  {:form-rel :lens/add-query
+   :state-fn
+   (fn [version]
+     (update-in version [:queries] #(conj % (empty-query (count %)))))})
 
-(defn add-query-msg [version]
-  {:action (-> version :forms :lens/add-query :action)
-   :result-topic ::new-version})
-
-(defn query-adder [version owner]
+(defn query-adder [owner]
   (d/p {:class "text-uppercase text-muted"}
     (fa/span :chevron-right) " "
-    (d/a {:href "#"
-          :on-click (h (bus/publish! owner :post (add-query-msg version)))}
+    (d/a {:href "#" :class "query-adder"
+          :on-click (h (bus/publish! owner ::tx (add-query-msg)))}
       "Add a query...")))
 
 (defn out-of-sync-loop
@@ -368,8 +395,7 @@
   workbook."
   [version owner]
   (will-mount [_]
-    (bus/listen-on owner ::add-cell #(post-add-cell! owner %))
-    (bus/listen-on owner ::remove-cell #(post-remove-cell! owner %))
+    (bus/listen-on owner ::tx #(perform-tx! owner %))
     (out-of-sync-loop owner))
   (will-unmount [_]
     (bus/unlisten-all owner))
@@ -378,7 +404,7 @@
       (when out-of-sync
         (d/div {:class "alert alert-warning" :role "alert"} "Out of sync!"))
       (apply d/div (om/build-all query (:queries version)))
-      (query-adder version owner))))
+      (query-adder owner))))
 
 (defn update-workbook-msg [workbook version-id]
   {:action (-> workbook :links :self :href)
@@ -393,21 +419,26 @@
   creates a new immutable version carrying the changes and second one updates
   the workbook to point to that new version."
   [owner {:keys [id] :as new-version}]
-  (let [workbook (om/get-props owner)]
+  (let [workbook (om/get-props owner)
+        head (:head workbook)
+        open-txs (:open-txs head)]
+    (when (<= (count open-txs) 1)
+      (bus/publish! owner ::out-of-sync false)
+      (bus/publish! owner :put (update-workbook-msg workbook id)))
+    (when (< 1 (count open-txs))
+      (bus/publish! owner :post (tx-msg new-version (second open-txs))))
     (om/transact! workbook :head
                   #(-> (assoc % :id id
                                 :links (:links new-version)
                                 :forms (:forms new-version))
-                       (update-in [:open-txs] pop)))
-    (bus/publish! owner ::out-of-sync false)
-    (bus/publish! owner :put (update-workbook-msg workbook id))))
+                       (update-in [:open-txs] pop)))))
 
 (defn on-undo
   "Updates the workbook with the parent of its head which is exactly what an
   undo should do."
   [owner]
   (let [workbook (om/get-props owner)]
-    (bus/publish! owner :put (update-workbook-msg workbook id))))
+    (bus/publish! owner :put (update-workbook-msg workbook {}))))
 
 (defn on-workbook-updated [workbook wb]
   (om/update! workbook :etag ((meta wb) "etag")))

@@ -85,7 +85,7 @@ body {
   opacity: 1;
 }
 
-a.cell-adder {
+a.cell-adder, a.query-adder {
   color: inherit;
 }
 
