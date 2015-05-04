@@ -2,7 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go-loop]]
                    [plumbing.core :refer [fnk]]
                    [lens.macros :refer [h]])
-  (:require [cljs.core.async :as async :refer [<!]]
+  (:require [cljs.core.async :as async]
             [om.core :as om :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
@@ -40,17 +40,12 @@
     (.addSeries chart nil (.-bar (.-plot js/dimple)))
     (.draw chart)))
 
-(defn execute-query
-  "Executes the query expr using the form and updating :result in target."
-  [form expr target]
-  {:pre [(:action form)]}
-  (io/post-form
-    {:url (:action form)
-     :data {:expr expr}
-     :on-complete
-     #(om/update! target :result
-                  (select-keys % [:visit-count-by-study-event])
-                  :query)}))
+(defn execute-query!
+  "Executes the query expr and publishes the result on result-topic."
+  [owner expr result-topic]
+  (bus/publish! owner :post {:form-rel :lens/query
+                             :params {:expr expr}
+                             :result-topic result-topic}))
 
 ;; ---- Headline --------------------------------------------------------------
 
@@ -85,19 +80,24 @@
 
 ;; ---- Query Grid ------------------------------------------------------------
 
+(defn cell-id [query-idx col-idx id]
+  (str "Q" query-idx "-C" col-idx "-" id))
+
 (defn single-form-expr [{:keys [id]}]
   {:items [[[:form id]]]})
 
-(defcomponent form [{:keys [id] :as form} _ {:keys [query-form]}]
+(defcomponent form [{:keys [id] :as form} owner {:keys [query-idx col-idx]}]
   (will-mount [_]
-    (println :form :will-mount)
-    (when query-form
-      (execute-query query-form (single-form-expr form) form)))
+    (bus/listen-on owner (cell-id query-idx col-idx id)
+      #(om/update! form :result (select-keys % [:visit-count-by-study-event])))
+    (execute-query! owner (single-form-expr form)
+                    (cell-id query-idx col-idx id)))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (did-update [_ _ _]
-    (println :form :did-update)
     (when-let [result (:result form)]
-      (clear-chart id)
-      (draw-query-result id result)))
+      (clear-chart (cell-id query-idx col-idx id))
+      (draw-query-result (cell-id query-idx col-idx id) result)))
   (render [_]
     (d/div
       (d/div
@@ -106,7 +106,8 @@
           id))
       (d/p {:class "text-muted"}
         (:name form))
-      (d/div {:id id :style {:height "200px"}}))))
+      (d/div {:id (cell-id query-idx col-idx id)
+              :style {:height "200px"}}))))
 
 (defn single-item-group-expr [{:keys [id]}]
   {:items [[[:item-group id]]]})
@@ -114,10 +115,10 @@
 (defcomponent item-group [{:keys [id] :as item-group} owner {:keys [query-form]}]
   (will-mount [_]
     (when query-form
-      (execute-query query-form (single-item-group-expr item-group) item-group)))
+      (execute-query! query-form (single-item-group-expr item-group) item-group)))
   (will-update [_ _ _]
     (when (and query-form (not= id (om/get-props owner :id)))
-      (execute-query query-form (single-item-group-expr item-group) item-group)))
+      (execute-query! query-form (single-item-group-expr item-group) item-group)))
   (did-update [_ _ _]
     (when-let [result (:result item-group)]
       (clear-chart (str "IG" id))
@@ -267,7 +268,7 @@
     (bus/listen-on owner [:query-updated query-idx]
       (fn [query-expr]
         (println :result :execute-query query-expr)
-        (execute-query query-form query-expr result))))
+        (execute-query! query-form query-expr result))))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ _]

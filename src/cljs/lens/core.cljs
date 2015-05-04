@@ -17,8 +17,7 @@
             [lens.item-dialog :refer [item-dialog]]
             [lens.alert :as alert :refer [alert alert!]]
             [lens.workbook :refer [workbook]]
-            [lens.workbooks :refer [workbooks]]
-            [lens.fa :as fa]))
+            [lens.workbooks :refer [workbooks]]))
 
 (enable-console-print!)
 
@@ -72,16 +71,6 @@
       (auth/assoc-auth-token)
       (io/get-xhr)))
 
-(defn query!
-  "Issues a query to action with params and publishes the result under
-  loaded-topic."
-  [owner action params loaded-topic]
-  {:pre [owner action params loaded-topic]}
-  (-> {:url action :data params
-       :on-complete #(bus/publish! owner loaded-topic %)}
-      (auth/assoc-auth-token)
-      (io/get-form)))
-
 (defn resolv-uri
   "Tries to resolv the uri of the link relation using links from all
   service documents. Returns nil if not found."
@@ -118,6 +107,16 @@
          unresolvables))}
     #{}))
 
+(defn query!
+  "Issues a query to action with params and publishes the result under
+  loaded-topic."
+  [owner action params loaded-topic]
+  {:pre [owner action loaded-topic]}
+  (-> {:url action :data params
+       :on-complete #(bus/publish! owner loaded-topic %)}
+      (auth/assoc-auth-token)
+      (io/get-form)))
+
 (defn query-loop
   "Listens on :query and :service-document-loaded topics. Tries to issue a query
   to the messages :form-rel. Spools messages with unresolvable form relations
@@ -125,16 +124,16 @@
   [owner]
   (bus/listen-on-mult owner
     {:query
-     (fn [unresolvables {:keys [form-rel params loaded-topic] :as msg}]
-       (if form-rel
-         (if-let [action (resolv-action owner form-rel)]
-           (do (query! owner action params loaded-topic) unresolvables)
-           (conj unresolvables msg))
-         unresolvables))
+     (fn [unresolvables {:keys [action form-rel params loaded-topic] :as msg}]
+       (assert (or action form-rel))
+       (if-let [action (or action (resolv-action owner form-rel))]
+         (do (query! owner action params loaded-topic) unresolvables)
+         (conj unresolvables msg)))
      :service-document-loaded
      (fn [unresolvables]
        (reduce
-         (fn [unresolvables {:keys [form-rel params loaded-topic] :as unresolvable}]
+         (fn [unresolvables {:keys [form-rel params loaded-topic]
+                             :as unresolvable}]
            (if-let [action (resolv-action owner form-rel)]
              (do (query! owner action params loaded-topic) unresolvables)
              (conj unresolvables unresolvable)))
@@ -142,16 +141,35 @@
          unresolvables))}
     #{}))
 
+(defn post!
+  "Issues a post to action with params and publishes the result under
+  result-topic."
+  [owner action params result-topic]
+  {:pre [owner action result-topic]}
+  (-> {:url action :data params
+       :on-complete #(bus/publish! owner result-topic %)}
+      (auth/assoc-auth-token)
+      (io/post-form)))
+
 (defn post-loop [owner]
-  (bus/listen-on owner :post
-    (fnk [action result-topic & more]
-      (assert action)
-      (assert result-topic)
-      (println "post-loop post to" action)
-      (-> {:url action :data (:params more)
-           :on-complete (fn [result] (bus/publish! owner result-topic result))}
-          (auth/assoc-auth-token)
-          (io/post-form)))))
+  (bus/listen-on-mult owner
+    {:post
+     (fn [unresolvables {:keys [action form-rel params result-topic] :as msg}]
+       (assert (or action form-rel))
+       (if-let [action (or action (resolv-action owner form-rel))]
+         (do (post! owner action params result-topic) unresolvables)
+         (conj unresolvables msg)))
+     :service-document-loaded
+     (fn [unresolvables]
+       (reduce
+         (fn [unresolvables {:keys [form-rel params result-topic]
+                             :as unresolvable}]
+           (if-let [action (resolv-action owner form-rel)]
+             (do (post! owner action params result-topic) unresolvables)
+             (conj unresolvables unresolvable)))
+         #{}
+         unresolvables))}
+      #{}))
 
 (defn put-loop [owner]
   (bus/listen-on owner :put
