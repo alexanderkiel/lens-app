@@ -15,7 +15,6 @@ more information.
 This application uses the following environment vars:
 
 * `PORT` - the port to listen on
-* `LENS_WAREHOUSE_URI` - the Lens URI
 
 ## Build
 
@@ -38,36 +37,12 @@ environment vars specified above and just type `foreman start`.
 
 ## Develop
 
-Run the ClojureScript compiler in auto mode:
+Lens uses figwheel
 
-    lein cljsbuild auto
+    rlwrap lein figwheel
 
-### Lighttable
-
-Get the websocket port from Lighttable which can be found under
-`Connect: Show connect bar` -> `Add Connection` -> `Port`. Place the websocket
-port into the `resources/public/html/index-dev.html`.
-
-Open `dev/user.clj` in Lighttable. Eval `(startup)`. The message
-`Server running at port 5000` should appear on the console.
-
-Open `http://localhost:5000/index-dev.html` in Goggle Chrome. The Lens site
-should appear.
-
-Open the console in Chrome Dev Tools.
-
-    XHR finished loading: GET "http://localhost:<lt-ws-port>/socket.io/...
-
-should appear. You are now connected to Lighttable.
-
-### Other
-
-Run ClojureScript REPL Server:
-
-    rlwrap lein trampoline cljsbuild repl-listen
-    
-Open `http://localhost:5000/index-dev.html` in Goggle Chrome. The Lens site
-should appear.
+Currently I get many warnings if I start figwheel without doing a `lein clean` 
+first.
 
 ## Architecture
 

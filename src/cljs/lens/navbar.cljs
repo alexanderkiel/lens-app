@@ -4,7 +4,8 @@
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.event-bus :as bus]
-            [lens.util :as util]))
+            [lens.util :as util]
+            [lens.fa :as fa]))
 
 ;; ---- Nav -------------------------------------------------------------------
 
@@ -13,9 +14,19 @@
     (d/li (when (:active item) {:class "active"})
       (d/a {:href "#" :on-click (h ((:handler item) owner))} (:name item)))))
 
+(defcomponent undo-nav-item [_ owner]
+  (will-mount [_]
+    (bus/listen-on owner :undo-enabled #(om/set-state! owner :enabled %)))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
+  (render-state [_ {:keys [enabled]}]
+    (d/li (when-not enabled {:class "disabled"})
+      (d/a {:href "#" :on-click (h (bus/publish! owner :undo {}))} (fa/span :undo)))))
+
 (defcomponent nav [nav]
   (render [_]
     (apply d/ul {:class "nav navbar-nav"}
+           (om/build undo-nav-item (:undo-nav-item nav))
            (om/build-all nav-item (:items nav)))))
 
 ;; ---- Sign In/Out -----------------------------------------------------------

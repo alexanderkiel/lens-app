@@ -6,7 +6,11 @@
     {:handler :workbook :params {:id ...}}
 
   :undo - undo action
-    {}"
+    {}
+
+  :undo-enabled - set enabled state of the undo menu item
+    true
+    false"
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [cljs.core.async :as async :refer [<!]]
             [om.core :as om]))

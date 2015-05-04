@@ -15,6 +15,9 @@
             [lens.event-bus :as bus]
             [lens.alert :refer [alert!]]))
 
+;; Local history of all versions of the current workbook
+(defonce version-history (atom []))
+
 ;; ---- Visit Count By Study Event Query --------------------------------------
 
 (defn clear-chart [id]
@@ -73,8 +76,9 @@
               :on-mouse-enter #(om/set-state! owner :hover true)
               :on-mouse-leave #(om/set-state! owner :hover false)}
         (d/h4 {:class "text-uppercase text-muted"}
-          (fa/span (if collapsed :chevron-right :chevron-down))
-          (d/span {:style {:margin-right "5px"}})
+          (d/span {:class (str "fa fa-" (if collapsed "chevron-right"
+                                                      "chevron-down"))
+                   :style {:margin-right "5px"}} )
           headline
           (when hover
             (query-remove-button owner idx)))))))
@@ -406,10 +410,10 @@
       (apply d/div (om/build-all query (:queries version)))
       (query-adder owner))))
 
-(defn update-workbook-msg [workbook version-id]
+(defn update-workbook-msg [workbook]
   {:action (-> workbook :links :self :href)
    :if-match (:etag workbook)
-   :params {:version-id version-id}
+   :params {:version-id (:id (:head workbook))}
    :result-topic ::workbook-updated})
 
 (defn on-new-version
@@ -423,8 +427,7 @@
         head (:head workbook)
         open-txs (:open-txs head)]
     (when (<= (count open-txs) 1)
-      (bus/publish! owner ::out-of-sync false)
-      (bus/publish! owner :put (update-workbook-msg workbook id)))
+      (bus/publish! owner ::out-of-sync false))
     (when (< 1 (count open-txs))
       (bus/publish! owner :post (tx-msg new-version (second open-txs))))
     (om/transact! workbook :head
@@ -433,13 +436,6 @@
                                 :forms (:forms new-version))
                        (update-in [:open-txs] pop)))))
 
-(defn on-undo
-  "Updates the workbook with the parent of its head which is exactly what an
-  undo should do."
-  [owner]
-  (let [workbook (om/get-props owner)]
-    (bus/publish! owner :put (update-workbook-msg workbook {}))))
-
 (defn on-workbook-updated [workbook wb]
   (om/update! workbook :etag ((meta wb) "etag")))
 
@@ -447,6 +443,27 @@
   "Message for :load topic loading the head of the workbook."
   [workbook]
   {:uri (-> workbook :links :lens/head :href) :loaded-topic ::loaded-version})
+
+(defn local-undo [workbook]
+  (om/update! workbook :head (peek @version-history))
+  (swap! version-history pop))
+
+(defn on-undo [owner]
+  (let [workbook (om/get-props owner)]
+    (if (seq @version-history)
+      (local-undo workbook)
+      (when-let [uri (-> workbook :head :links :lens/parent :href)]
+        (bus/publish! owner :load {:uri uri :loaded-topic ::loaded-version})))))
+
+(defn update-workbook-on-head-change [owner old-workbook new-workbook]
+  (when-let [old-head (:head old-workbook)]
+    (when-let [new-head (:head new-workbook)]
+      (if (not= (:id new-head) (:id old-head))
+        (bus/publish! owner :put (update-workbook-msg new-workbook))))))
+
+(defn update-undo-enabled-state [owner workbook]
+  (->> (if (-> workbook :head :links :lens/parent) true false)
+       (bus/publish! owner :undo-enabled)))
 
 (defcomponent workbook
   "Component which represents a workbook showing its head through the version
@@ -459,13 +476,18 @@
   is advanced. See doc of on-new-version for more information."
   [workbook owner]
   (will-mount [_]
+    (reset! version-history [])
     (bus/listen-on owner ::loaded-version #(on-loaded-version workbook %))
     (bus/listen-on owner ::new-version #(on-new-version owner %))
-    (bus/listen-on owner :undo #(on-undo owner))
     (bus/listen-on owner ::workbook-updated #(on-workbook-updated workbook %))
+    (bus/listen-on owner :undo #(on-undo owner))
     (bus/publish! owner :load (load-head-msg workbook)))
   (will-unmount [_]
     (bus/unlisten-all owner))
+  (will-update [_ new-workbook _]
+    (let [old-workbook (om/get-props owner)]
+      (update-workbook-on-head-change owner old-workbook new-workbook)
+      (update-undo-enabled-state owner new-workbook)))
   (render [_]
     (util/set-title! (str (:name workbook) " - Lens"))
     (when-let [head (:head workbook)] (om/build version head))))

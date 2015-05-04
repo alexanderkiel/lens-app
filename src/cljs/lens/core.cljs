@@ -26,7 +26,8 @@
   (atom
     {:navbar
      {:nav
-      {:items [{:name (fa/span :undo) :handler #(bus/publish! % :undo {})}]}
+      {:undo-nav-item {}
+       :items []}
       :sign-in-out {}}
      :alert
      {}
@@ -37,8 +38,6 @@
        :list {:terms []}}}
      :workbooks
      {}}))
-
-(defonce app-history (atom []))
 
 (defn load-service-document [owner service]
   (io/get-xhr {:url service
@@ -104,6 +103,7 @@
   (bus/listen-on-mult owner
     {:load
      (fn [unresolvables {:keys [uri link-rel loaded-topic] :as msg}]
+       (assert (or uri link-rel))
        (if-let [uri (or uri (resolv-uri owner link-rel))]
          (do (load! owner uri loaded-topic) unresolvables)
          (conj unresolvables msg)))
@@ -228,11 +228,7 @@
 
   Save the old state as point in history so that one can go back there."
   [old-state]
-  (swap! app-history conj old-state)
-  (->> (map :workbook @app-history)
-       (map :head)
-       (map :id)
-       (apply println "history:")))
+  (swap! lens.workbook/version-history conj (-> old-state :workbook :head)))
 
 (om/root app app-state
   {:target (dom/getElement "app")
