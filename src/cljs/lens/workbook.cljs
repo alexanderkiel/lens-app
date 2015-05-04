@@ -88,12 +88,8 @@
 
 (defcomponent form [{:keys [id] :as form} owner {:keys [query-idx col-idx]}]
   (will-mount [_]
-    (bus/listen-on owner (cell-id query-idx col-idx id)
-      #(om/update! form :result (select-keys % [:visit-count-by-study-event])))
     (execute-query! owner (single-form-expr form)
                     (cell-id query-idx col-idx id)))
-  (will-unmount [_]
-    (bus/unlisten-all owner))
   (did-update [_ _ _]
     (when-let [result (:result form)]
       (clear-chart (cell-id query-idx col-idx id))
@@ -112,23 +108,21 @@
 (defn single-item-group-expr [{:keys [id]}]
   {:items [[[:item-group id]]]})
 
-(defcomponent item-group [{:keys [id] :as item-group} owner {:keys [query-form]}]
+(defcomponent item-group [{:keys [id] :as item-group} owner
+                          {:keys [query-idx col-idx]}]
   (will-mount [_]
-    (when query-form
-      (execute-query! query-form (single-item-group-expr item-group) item-group)))
-  (will-update [_ _ _]
-    (when (and query-form (not= id (om/get-props owner :id)))
-      (execute-query! query-form (single-item-group-expr item-group) item-group)))
+    (execute-query! owner (single-item-group-expr item-group)
+                    (cell-id query-idx col-idx id)))
   (did-update [_ _ _]
     (when-let [result (:result item-group)]
-      (clear-chart (str "IG" id))
-      (draw-query-result (str "IG" id) result)))
+      (clear-chart (cell-id query-idx col-idx id))
+      (draw-query-result (cell-id query-idx col-idx id) result)))
   (render [_]
     (d/div
       (d/div (util/add-soft-hyphen (:name item-group)))
       (d/p {:class "text-muted"}
         (str "Form: " (:name (:parent item-group))))
-      (d/div {:id (str "IG" id)}))))
+      (d/div {:id (cell-id query-idx col-idx id)}))))
 
 (defcomponent item [{:keys [id] :as item} _ _]
   (will-mount [_]
@@ -152,11 +146,16 @@
 
 (defcomponent query-grid-cell
   "A cell in a query grid."
-  [term owner {:keys [query-idx col-idx] :as opts}]
+  [{:keys [id] :as term} owner {:keys [query-idx col-idx] :as opts}]
   (init-state [_]
     {:hover false
      :dropdown-hover false
      :dropdown-active false})
+  (will-mount [_]
+    (bus/listen-on owner (cell-id query-idx col-idx id)
+      #(om/update! term :result (select-keys % [:visit-count-by-study-event]))))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
   (render-state [_ {:keys [hover dropdown-hover dropdown-active]}]
     (d/div {:class "query-cell"
             :on-mouse-enter #(om/set-state! owner :hover true)
@@ -263,12 +262,15 @@
 (defcomponent result
   "The result component subscribes to the :query-updated topic and executes a
   query whenever something is published."
-  [result owner {:keys [query-idx query-form collapsed]}]
+  [result owner {:keys [query-idx collapsed]}]
   (will-mount [_]
+    (println :result :listen-on [:query-updated query-idx])
     (bus/listen-on owner [:query-updated query-idx]
       (fn [query-expr]
         (println :result :execute-query query-expr)
-        (execute-query! query-form query-expr result))))
+        (execute-query! owner query-expr (str "Q" query-idx "-R"))))
+    (bus/listen-on owner (str "Q" query-idx "-R")
+      #(om/update! result :result (select-keys % [:visit-count-by-study-event]))))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ _]
@@ -301,21 +303,25 @@
         (filter seq))})
 
 (defcomponent query [{:keys [idx collapsed] :as query} owner opts]
-  (did-update [_ prev-props _]
-    (println :query :did-update)
-    (let [old-query-expr (build-query-expr prev-props)
-          new-query-expr (build-query-expr query)]
+  (will-mount [_]
+    (bus/publish! owner [:query-updated idx] (build-query-expr query)))
+  (will-update [_ new-query _]
+    (println :query :will-update)
+    (let [old-query-expr (build-query-expr (om/get-props owner))
+          new-query-expr (build-query-expr new-query)]
+      (println :query :will-update :old-query-expr old-query-expr)
+      (println :query :will-update :new-query-expr new-query-expr)
       (when (not= old-query-expr new-query-expr)
         (println :query :publish-new-expr :under idx)
         (bus/publish! owner [:query-updated idx] new-query-expr))))
   (render [_]
-    (apply d/div
-           (om/build headline (or (:name query) (str "Query " (inc idx)))
-                     {:opts {:idx idx :collapsed collapsed}})
-           (om/build query-grid (:query-grid query)
-                     {:opts (assoc opts :query-idx idx :collapsed collapsed)})
-           (om/build-all result (:result-list query)
-                         {:opts (assoc opts :query-idx idx :collapsed collapsed)}))))
+    (d/div
+      (om/build headline (or (:name query) (str "Query " (inc idx)))
+                {:opts {:idx idx :collapsed collapsed}})
+      (om/build query-grid (:query-grid query)
+                {:opts (assoc opts :query-idx idx :collapsed collapsed)})
+      (om/build result (:result query)
+                {:opts (assoc opts :query-idx idx :collapsed collapsed)}))))
 
 ;; ---- Workbook --------------------------------------------------------------
 
@@ -326,11 +332,18 @@
   (-> (update-in query [:query-grid :cols] #(vec (map-indexed assoc-idx %)))
       (assoc :idx idx)))
 
-(defn index-queries-and-cols [version]
-  (update-in version [:queries] #(vec (map-indexed index-query %))))
+(defn prepare-queries [queries]
+  (->> (map-indexed index-query queries)
+       (mapv #(assoc % :result {}))))
+
+(defn prepare-version
+  "Adds some stuff to the version so that it can be used as part of the app
+  state."
+  [version]
+  (update-in version [:queries] prepare-queries))
 
 (defn on-loaded-version [workbook version]
-  (->> (-> (index-queries-and-cols version)
+  (->> (-> (prepare-version version)
            (assoc :open-txs #queue []))
        (om/update! workbook :head)))
 
@@ -400,6 +413,7 @@
   workbook."
   [version owner]
   (will-mount [_]
+    (println :version :will-mount)
     (bus/listen-on owner ::tx #(perform-tx! owner %))
     (out-of-sync-loop owner))
   (will-unmount [_]

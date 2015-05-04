@@ -8,7 +8,7 @@
   "Adds U+00AD soft hyphens after certain chars in string in order to
   facilitate hyphenation."
   [s]
-  (str/replace s "/" "/\u00AD"))
+  (when s (str/replace s "/" "/\u00AD")))
 
 (defn prepend-ns [ns kw]
   (keyword ns (name kw)))
