@@ -21,7 +21,7 @@
 ;; ---- Visit Count By Study Event Query --------------------------------------
 
 (defn clear-chart [id]
-  (let [n (dom/getElement id)]
+  (when-let [n (dom/getElement id)]
     (while (.hasChildNodes n)
       (.removeChild n (.-lastChild n)))))
 
@@ -200,33 +200,37 @@
   (did-update [_ _ _]
     (when-let [result (:result term)]
       (clear-chart (cell-id opts id))
-      (draw-query-result (cell-id opts id) result)))
+      (draw-query-result (cell-id opts id) result))
+    (let [cell (om/get-node owner "cell")]
+      (println (.-clientWidth cell))))
   (render-state [_ {:keys [hover dropdown-hover dropdown-active]}]
-    (d/div {:class "query-cell"
-            :on-mouse-enter #(om/set-state! owner :hover true)
-            :on-mouse-leave #(om/update-state! owner query-grid-cell-mouse-leave)}
-      (d/div {:class "dropdown pull-right"
-              :style {:display (if hover "block" "none")}
-              :on-click #(om/update-state! owner :dropdown-active not)
-              :on-mouse-enter #(om/set-state! owner :dropdown-hover true)
-              :on-mouse-leave #(om/set-state! owner :dropdown-hover false)}
-        (d/span (when-not dropdown-hover {:class "text-muted"})
-          (fa/span :chevron-down))
-        (d/div {:class "tooltip right" :role "tooltip"
-                :style {:display (if dropdown-hover "inline-block" "none")}}
-          (d/div {:class "tooltip-arrow"})
-          (d/div {:class "tooltip-inner"} "Options Menu"))
-        (d/ul {:class "dropdown-menu dropdown-menu-right" :role "menu"
-               :style {:display (if dropdown-active "block" "none")}}
-          (d/li {:role "presentation"}
-            (d/a {:role "menuitem" :tab-index "-1" :href "#"
-                  :on-click (h (bus/publish! owner [::remove-cell query-idx
-                                                    col-idx] id))}
-              "Remove"))))
-      (condp = (:type term)
-        :form (om/build form term {:opts opts})
-        :item-group (om/build item-group term {:opts opts})
-        :item (om/build item term {:opts opts})))))
+    (d/div
+      (d/div {:class "query-cell" :ref "cell"
+              :on-mouse-enter #(om/set-state! owner :hover true)
+              :on-mouse-leave #(om/update-state! owner query-grid-cell-mouse-leave)}
+        (d/div {:class "dropdown pull-right"
+                :style {:display (if hover "block" "none")}
+                :on-click #(om/update-state! owner :dropdown-active not)
+                :on-mouse-enter #(om/set-state! owner :dropdown-hover true)
+                :on-mouse-leave #(om/set-state! owner :dropdown-hover false)}
+          (d/span (when-not dropdown-hover {:class "text-muted"})
+            (fa/span :chevron-down))
+          (d/div {:class "tooltip right" :role "tooltip"
+                  :style {:display (if dropdown-hover "inline-block" "none")}}
+            (d/div {:class "tooltip-arrow"})
+            (d/div {:class "tooltip-inner"} "Options Menu"))
+          (d/ul {:class "dropdown-menu dropdown-menu-right" :role "menu"
+                 :style {:display (if dropdown-active "block" "none")}}
+            (d/li {:role "presentation"}
+              (d/a {:role "menuitem" :tab-index "-1" :href "#"
+                    :on-click (h (bus/publish! owner [::remove-cell query-idx
+                                                      col-idx] id))}
+                "Remove"))))
+        (condp = (:type term)
+          :form (om/build form term {:opts opts})
+          :item-group (om/build item-group term {:opts opts})
+          :item (om/build item term {:opts opts})))
+      (d/div {:class "query-col-or-badge text-muted"} "OR"))))
 
 (defn show-item-dialog! [owner query-idx col-idx]
   (item-dialog/show! owner [::add-cell query-idx col-idx]))
@@ -288,8 +292,11 @@
     (bus/unlisten-all owner))
   (render [_]
     (d/div {:class "col-md-4"}
-      (apply d/div (om/build-all query-grid-cell (:cells col)
-                                 {:opts (assoc opts :col-idx idx)}))
+      (when (and (pos? idx) (seq (:cells col)))
+        (d/div {:class "query-col-and-badge text-muted"} "AND"))
+      (apply d/div {:class "query-cell-list"}
+             (om/build-all query-grid-cell (:cells col)
+                           {:opts (assoc opts :col-idx idx)}))
       (cell-adder owner query-idx idx))))
 
 (defcomponent query-grid

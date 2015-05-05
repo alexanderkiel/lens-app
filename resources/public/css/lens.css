@@ -64,11 +64,14 @@ body {
 
 /* ---- Query - Cell ------------------------------------------------------- */
 
+.query-cell-list {
+  margin-bottom: 15px;
+}
+
 .query-cell {
   padding: 10px;
   border: 1px solid #D8D8D8;
   border-bottom-width: 2px;
-  margin-bottom: 20px;
   background-color: #FFF;
 }
 
@@ -87,6 +90,22 @@ body {
 
 a.cell-adder, a.query-adder {
   color: inherit;
+}
+
+.query-col-and-badge {
+  position: absolute;
+  left: -15px;
+  top: 120px;
+  transform: rotate(270deg);
+}
+
+.query-col-or-badge {
+  text-align: center;
+  line-height: 30px;
+}
+
+div:last-child > .query-col-or-badge {
+  display: none;
 }
 
 /* ---- Result ------------------------------------------------------------- */
