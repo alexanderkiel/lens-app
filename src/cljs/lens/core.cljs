@@ -276,7 +276,7 @@
        :history
        (on-history-tx tx)
 
-       :query
-       (println "TX at" path ": " old-value "->" new-value)
+       #_:query
+       #_(println "TX at" path ": " old-value "->" new-value)
 
        (do)))})

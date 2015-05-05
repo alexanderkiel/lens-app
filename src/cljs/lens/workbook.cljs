@@ -88,6 +88,15 @@
 
 (defcomponent form [{:keys [id] :as form} owner {:keys [query-idx col-idx]}]
   (will-mount [_]
+    (bus/listen-on owner [:loaded-form query-idx col-idx id]
+      (fn [new-form]
+        (om/transact! form #(merge % (select-keys new-form [:name :alias])))))
+    (when-not (:name form)
+      (bus/publish! owner :query {:form-rel :lens/find-form
+                                  :params {:id id}
+                                  :snapshot (util/get-most-recent-snapshot-id owner)
+                                  :loaded-topic [:loaded-form query-idx
+                                                 col-idx id]}))
     (execute-query! owner (single-form-expr form)
                     (cell-id query-idx col-idx id)))
   (did-update [_ _ _]
@@ -101,7 +110,7 @@
           (str alias " (" id ")")
           id))
       (d/p {:class "text-muted"}
-        (:name form))
+        (or (:name form) "loading..."))
       (d/div {:id (cell-id query-idx col-idx id)
               :style {:height "200px"}}))))
 
@@ -272,17 +281,14 @@
   query whenever something is published."
   [result owner {:keys [query-idx collapsed]}]
   (will-mount [_]
-    (println :result :listen-on [:query-updated query-idx])
     (bus/listen-on owner [:query-updated query-idx]
       (fn [query-expr]
-        (println :result :execute-query query-expr)
-        (execute-query! owner query-expr (str "Q" query-idx "-R"))))
-    (bus/listen-on owner (str "Q" query-idx "-R")
+        (execute-query! owner query-expr [:result-loaded query-idx])))
+    (bus/listen-on owner [:result-loaded query-idx]
       #(om/update! result :result (select-keys % [:visit-count-by-study-event]))))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ _]
-    (println :result :did-update)
     (when-let [result (:result result)]
       (clear-chart (result-chart-id query-idx))
       (draw-query-result (result-chart-id query-idx) result)))
@@ -291,10 +297,10 @@
       (d/div {:class "col-md-12"}
         (d/div {:class "result"}
           (d/p {:class "text-uppercase"} "Result")
-          (if (:result result)
-            (d/div {:id (result-chart-id query-idx) :style {:height "400px"}})
-            (d/div {:class " text-muted text-center"}
-              "Please add items to the query grid.")))))))
+          (d/div {:id (result-chart-id query-idx)
+                  :class " text-muted text-center"
+                  :style {:height "400px"}}
+            "Please add items to the query grid."))))))
 
 ;; ---- Query -----------------------------------------------------------------
 
@@ -310,18 +316,19 @@
                     (seq))))
         (filter seq))})
 
+(defn publish-query-expr-if-not-empty! [owner idx expr]
+  (when (seq (:items expr))
+    (bus/publish! owner [:query-updated idx] expr)))
+
 (defcomponent query [{:keys [idx collapsed] :as query} owner opts]
   (will-mount [_]
-    (bus/publish! owner [:query-updated idx] (build-query-expr query)))
+    (let [expr (build-query-expr query)]
+      (publish-query-expr-if-not-empty! owner idx expr)))
   (will-update [_ new-query _]
-    (println :query :will-update)
     (let [old-query-expr (build-query-expr (om/get-props owner))
           new-query-expr (build-query-expr new-query)]
-      (println :query :will-update :old-query-expr old-query-expr)
-      (println :query :will-update :new-query-expr new-query-expr)
       (when (not= old-query-expr new-query-expr)
-        (println :query :publish-new-expr :under idx)
-        (bus/publish! owner [:query-updated idx] new-query-expr))))
+        (publish-query-expr-if-not-empty! owner idx new-query-expr))))
   (render [_]
     (d/div
       (om/build headline (or (:name query) (str "Query " (inc idx)))
@@ -372,7 +379,8 @@
     (om/transact! version [] #(update-state % msg) :history)))
 
 (defn empty-query [idx]
-  (index-query idx {:query-grid {:cols [{} {} {}]}}))
+  (index-query idx {:query-grid {:cols [{} {} {}]}
+                    :result {}}))
 
 (defn add-query-msg []
   {:form-rel :lens/add-query
@@ -421,7 +429,6 @@
   workbook."
   [version owner]
   (will-mount [_]
-    (println :version :will-mount)
     (bus/listen-on owner ::tx #(perform-tx! owner %))
     (out-of-sync-loop owner))
   (will-unmount [_]
