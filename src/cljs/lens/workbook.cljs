@@ -12,7 +12,8 @@
             [goog.dom :as dom]
             [lens.util :as util]
             [lens.event-bus :as bus]
-            [lens.alert :refer [alert!]]))
+            [lens.alert :refer [alert!]]
+            [lens.schema :as s]))
 
 ;; Local history of all versions of the current workbook
 (defonce version-history (atom []))
@@ -47,6 +48,27 @@
                               :snapshot (util/get-most-recent-snapshot-id owner)
                               :loaded-topic result-topic}))
 
+;; ---- Item Value Histogram --------------------------------------------------
+
+(defn round [precision x]
+  (let [mag (count (str (int x)))
+        factor (.pow js/Math 10 (max 0 (- precision mag)))]
+    (/ (.round js/Math (* x factor)) factor)))
+
+(defn value-hist [item]
+  (->> (:value-histogram item)
+       (map (fn [[x y]] (hash-map "Bucket" (round 3 x) "Values" y)))))
+
+(defn draw-item-chart [id value-hist]
+  (let [data value-hist
+        svg (.newSvg js/dimple (str "#" id) "100%" 200)
+        chart (new js/dimple.chart svg (clj->js data))]
+    (.setMargins chart 50 10 50 35)
+    (.addCategoryAxis chart "x" "Bucket")
+    (.addMeasureAxis chart "y" "Values")
+    (.addSeries chart nil (.-bar (.-plot js/dimple)))
+    (.draw chart)))
+
 ;; ---- Headline --------------------------------------------------------------
 
 (defn remove-query-msg [idx]
@@ -80,29 +102,30 @@
 
 ;; ---- Query Grid ------------------------------------------------------------
 
-(defn cell-id [query-idx col-idx id]
+(defn cell-id [{:keys [query-idx col-idx]} id]
   (str "Q" query-idx "-C" col-idx "-" id))
+
+(defn result-loaded [{:keys [query-idx col-idx]} id]
+  {:pre [query-idx col-idx id]}
+  [:result-loaded query-idx col-idx id])
+
+(defn term-loaded [{:keys [query-idx col-idx]} id]
+  [:term-loaded query-idx col-idx id])
 
 (defn single-form-expr [{:keys [id]}]
   {:items [[[:form id]]]})
 
-(defcomponent form [{:keys [id] :as form} owner {:keys [query-idx col-idx]}]
+(defn load-term! [owner form-rel opts id]
+  (bus/publish! owner :query {:form-rel form-rel
+                              :params {:id id}
+                              :snapshot (util/get-most-recent-snapshot-id owner)
+                              :loaded-topic (term-loaded opts id)}))
+
+(defcomponent form [{:keys [id] :as form} owner opts]
   (will-mount [_]
-    (bus/listen-on owner [:loaded-form query-idx col-idx id]
-      (fn [new-form]
-        (om/transact! form #(merge % (select-keys new-form [:name :alias])))))
     (when-not (:name form)
-      (bus/publish! owner :query {:form-rel :lens/find-form
-                                  :params {:id id}
-                                  :snapshot (util/get-most-recent-snapshot-id owner)
-                                  :loaded-topic [:loaded-form query-idx
-                                                 col-idx id]}))
-    (execute-query! owner (single-form-expr form)
-                    [:result-loaded query-idx col-idx id]))
-  (did-update [_ _ _]
-    (when-let [result (:result form)]
-      (clear-chart (cell-id query-idx col-idx id))
-      (draw-query-result (cell-id query-idx col-idx id) result)))
+      (load-term! owner :lens/find-form opts id))
+    (execute-query! owner (single-form-expr form) (result-loaded opts id)))
   (render [_]
     (d/div
       (d/div
@@ -111,35 +134,30 @@
           id))
       (d/p {:class "text-muted"}
         (or (:name form) "loading..."))
-      (d/div {:id (cell-id query-idx col-idx id)
-              :style {:height "200px"}}))))
+      (d/div {:id (cell-id opts id) :style {:height "200px"}}))))
 
 (defn single-item-group-expr [{:keys [id]}]
   {:items [[[:item-group id]]]})
 
-(defcomponent item-group [{:keys [id] :as item-group} owner
-                          {:keys [query-idx col-idx]}]
+(defcomponent item-group [{:keys [id] :as item-group} owner opts]
   (will-mount [_]
+    (when-not (:name item-group)
+      (load-term! owner :lens/find-item-group opts id))
     (execute-query! owner (single-item-group-expr item-group)
-                    [:result-loaded query-idx col-idx id]))
-  (did-update [_ _ _]
-    (when-let [result (:result item-group)]
-      (clear-chart (cell-id query-idx col-idx id))
-      (draw-query-result (cell-id query-idx col-idx id) result)))
+                    (result-loaded opts id)))
   (render [_]
     (d/div
-      (d/div (util/add-soft-hyphen (:name item-group)))
-      (d/p {:class "text-muted"}
-        (str "Form: " (:name (:parent item-group))))
-      (d/div {:id (cell-id query-idx col-idx id)}))))
+      (d/div (or (util/add-soft-hyphen (:name item-group)) "loading..."))
+      (d/div {:id (cell-id opts id) :style {:height "200px"}}))))
 
-(defcomponent item [{:keys [id] :as item} _ _]
+(defcomponent item [{:keys [id] :as item} owner opts]
   (will-mount [_]
-    )
-  (will-update [_ _ _]
-    )
+    (when-not (if (s/is-numeric? item) (:value-histogram item) (:question item))
+      (load-term! owner :lens/find-item opts id)))
   (did-update [_ _ _]
-    )
+    (when-let [value-histogram (value-hist item)]
+      (clear-chart (cell-id opts id))
+      (draw-item-chart (cell-id opts id) value-histogram)))
   (render [_]
     (d/div
       (d/div
@@ -147,11 +165,15 @@
           (str alias " (" id ")")
           id))
       (d/p {:class "text-muted"}
-        (:question item))
-      (d/div {:id id}))))
+        (or (:question item) "loading..."))
+      (when (s/is-numeric? item)
+        (d/div {:id (cell-id opts id) :style {:height "200px"}})))))
 
 (defn query-grid-cell-mouse-leave [state]
   (assoc state :hover false :dropdown-hover false :dropdown-active false))
+
+(defn merge-into-term [term new-term]
+  (merge term (dissoc new-term :embedded :forms :links)))
 
 (defcomponent query-grid-cell
   "A cell in a query grid.
@@ -169,10 +191,16 @@
      :dropdown-hover false
      :dropdown-active false})
   (will-mount [_]
-    (bus/listen-on owner [:result-loaded query-idx col-idx id]
-      #(om/update! term :result (select-keys % [:visit-count-by-study-event]))))
+    (bus/listen-on owner (result-loaded opts id)
+      #(om/update! term :result (select-keys % [:visit-count-by-study-event])))
+    (bus/listen-on owner [:term-loaded query-idx col-idx id]
+      (fn [new-term] (om/transact! term #(merge-into-term % new-term)))))
   (will-unmount [_]
     (bus/unlisten-all owner))
+  (did-update [_ _ _]
+    (when-let [result (:result term)]
+      (clear-chart (cell-id opts id))
+      (draw-query-result (cell-id opts id) result)))
   (render-state [_ {:keys [hover dropdown-hover dropdown-active]}]
     (d/div {:class "query-cell"
             :on-mouse-enter #(om/set-state! owner :hover true)
