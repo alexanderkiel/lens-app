@@ -58,7 +58,7 @@
                                           (when (:active term) "active")))
           :href "#"
           :on-click (h (put! activate (:id @term)))
-          :on-double-click #(when (:childs @term) (put! open @term))}
+          :on-double-click (h (when (:childs @term) (put! open @term)))}
       (om/build comp/count-badge term)
       (primary-label term)
       (cond
@@ -234,7 +234,9 @@
   (first (filter :active (-> terms :list :terms))))
 
 (defn clean-term [term]
-  (dissoc term :childs :search-childs :active :embedded :forms :links))
+  (let [ks [:childs :search-childs :active :embedded :forms :links]]
+    (-> (apply dissoc term ks)
+        (update-in [:parent] #(apply dissoc % ks)))))
 
 (defcomponent terms
   "The terms component consists of a return stack, a search field and a terms
