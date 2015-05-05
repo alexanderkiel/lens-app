@@ -17,7 +17,8 @@
             [lens.item-dialog :refer [item-dialog]]
             [lens.alert :as alert :refer [alert alert!]]
             [lens.workbook :refer [workbook]]
-            [lens.workbooks :refer [workbooks]]))
+            [lens.workbooks :refer [workbooks]]
+            [lens.util :as util]))
 
 (enable-console-print!)
 
@@ -57,10 +58,11 @@
         (swap! links #(merge % (dissoc (:links doc) :self)))
         (swap! forms #(merge % (:forms doc)))))))
 
-(defn load-count-loop [load-ch]
+(defn load-count-loop [owner load-ch]
   (go-loop []
     (when-let [{:keys [uri result-ch]} (<! load-ch)]
-      (io/get-xhr {:url uri :on-complete #(put! result-ch %)})
+      (io/get-xhr {:url uri :snapshot (util/get-most-recent-snapshot-id owner)
+                   :on-complete #(put! result-ch %)})
       (recur))))
 
 (defn load!
@@ -228,7 +230,7 @@
     (post-loop owner)
     (put-loop owner)
     (figwheel-reload-loop owner)
-    (load-count-loop (om/get-shared owner :count-load-ch))
+    (load-count-loop owner (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
     (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app-state owner %))
     (bus/listen-on owner :loaded-snapshots #(on-loaded-snapshots owner %))
