@@ -283,24 +283,30 @@
   (will-mount [_]
     (bus/listen-on owner [:query-updated query-idx]
       (fn [query-expr]
-        (execute-query! owner query-expr [:result-loaded query-idx])))
+        (println :query-expr query-expr)
+        (if (seq (:items query-expr))
+          (execute-query! owner query-expr [:result-loaded query-idx])
+          (om/transact! result #(dissoc % :result)))))
     (bus/listen-on owner [:result-loaded query-idx]
       #(om/update! result :result (select-keys % [:visit-count-by-study-event]))))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ _]
+    (println :did-update (:result result))
+    (clear-chart (result-chart-id query-idx))
     (when-let [result (:result result)]
-      (clear-chart (result-chart-id query-idx))
       (draw-query-result (result-chart-id query-idx) result)))
   (render [_]
+    (println :result :render)
     (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
       (d/div {:class "col-md-12"}
         (d/div {:class "result"}
           (d/p {:class "text-uppercase"} "Result")
+          (d/p {:class "text-muted text-center"
+                :style {:display (if (:result result) "none" "block")}}
+            "Please add items to the query grid.")
           (d/div {:id (result-chart-id query-idx)
-                  :class " text-muted text-center"
-                  :style {:height "400px"}}
-            "Please add items to the query grid."))))))
+                  :style {:height (if (:result result) "400px" "0")}}))))))
 
 ;; ---- Query -----------------------------------------------------------------
 
@@ -316,19 +322,18 @@
                     (seq))))
         (filter seq))})
 
-(defn publish-query-expr-if-not-empty! [owner idx expr]
-  (when (seq (:items expr))
-    (bus/publish! owner [:query-updated idx] expr)))
+(defn publish-query-expr! [owner idx expr]
+  (bus/publish! owner [:query-updated idx] expr))
 
 (defcomponent query [{:keys [idx collapsed] :as query} owner opts]
   (will-mount [_]
     (let [expr (build-query-expr query)]
-      (publish-query-expr-if-not-empty! owner idx expr)))
+      (publish-query-expr! owner idx expr)))
   (will-update [_ new-query _]
     (let [old-query-expr (build-query-expr (om/get-props owner))
           new-query-expr (build-query-expr new-query)]
       (when (not= old-query-expr new-query-expr)
-        (publish-query-expr-if-not-empty! owner idx new-query-expr))))
+        (publish-query-expr! owner idx new-query-expr))))
   (render [_]
     (d/div
       (om/build headline (or (:name query) (str "Query " (inc idx)))
