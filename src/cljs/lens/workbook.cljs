@@ -98,7 +98,7 @@
                                   :loaded-topic [:loaded-form query-idx
                                                  col-idx id]}))
     (execute-query! owner (single-form-expr form)
-                    (cell-id query-idx col-idx id)))
+                    [:result-loaded query-idx col-idx id]))
   (did-update [_ _ _]
     (when-let [result (:result form)]
       (clear-chart (cell-id query-idx col-idx id))
@@ -121,7 +121,7 @@
                           {:keys [query-idx col-idx]}]
   (will-mount [_]
     (execute-query! owner (single-item-group-expr item-group)
-                    (cell-id query-idx col-idx id)))
+                    [:result-loaded query-idx col-idx id]))
   (did-update [_ _ _]
     (when-let [result (:result item-group)]
       (clear-chart (cell-id query-idx col-idx id))
@@ -169,7 +169,7 @@
      :dropdown-hover false
      :dropdown-active false})
   (will-mount [_]
-    (bus/listen-on owner (cell-id query-idx col-idx id)
+    (bus/listen-on owner [:result-loaded query-idx col-idx id]
       #(om/update! term :result (select-keys % [:visit-count-by-study-event]))))
   (will-unmount [_]
     (bus/unlisten-all owner))
@@ -193,7 +193,7 @@
           (d/li {:role "presentation"}
             (d/a {:role "menuitem" :tab-index "-1" :href "#"
                   :on-click (h (bus/publish! owner [::remove-cell query-idx
-                                                    col-idx] (:id term)))}
+                                                    col-idx] id))}
               "Remove"))))
       (condp = (:type term)
         :form (om/build form term {:opts opts})
@@ -379,7 +379,7 @@
     (om/transact! version [] #(update-state % msg) :history)))
 
 (defn empty-query [idx]
-  (index-query idx {:query-grid {:cols [{} {} {}]}
+  (index-query idx {:query-grid {:cols (vec (repeat 3 {:cells []}))}
                     :result {}}))
 
 (defn add-query-msg []
