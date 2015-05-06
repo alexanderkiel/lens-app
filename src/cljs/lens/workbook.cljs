@@ -3,6 +3,7 @@
                    [plumbing.core :refer [fnk]]
                    [lens.macros :refer [h]])
   (:require [cljs.core.async :as async]
+            [cljs.reader :as reader]
             [om.core :as om :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
@@ -192,6 +193,12 @@
       (when (s/is-numeric? item)
         (d/div {:id (cell-id opts id) :style {:height "200px"}})))))
 
+(defcomponent code-list-item [cl-item]
+  (render [_]
+    (d/div
+      (d/div
+        (str (-> cl-item :id :item-id) ": " (-> cl-item :id :code))))))
+
 (defn query-grid-cell-mouse-leave [state]
   (assoc state :hover false :dropdown-hover false :dropdown-active false))
 
@@ -250,7 +257,8 @@
         (condp = (:type term)
           :form (om/build form term {:opts opts})
           :item-group (om/build item-group term {:opts opts})
-          :item (om/build item term {:opts opts})))
+          :item (om/build item term {:opts opts})
+          :code-list-item (om/build code-list-item term {:opts opts})))
       (d/div {:class "query-col-or-badge text-muted"} "OR"))))
 
 (defn show-item-dialog! [owner query-idx col-idx]
@@ -436,11 +444,30 @@
   (-> (update-in query [:query-grid :cols] #(vec (map-indexed assoc-idx %)))
       (assoc :idx idx)))
 
+(defn resolve-code-list-item-ids [query]
+  (update-in
+    query [:query-grid :cols]
+    (fn [cols]
+      (mapv
+        (fn [col]
+          (update-in
+            col [:cells]
+            (fn [cells]
+              (mapv
+                (fn [{:keys [type] :as cell}]
+                  (println :resolve :id :in cell)
+                  (if (= :code-list-item type)
+                    (update-in cell [:id] (fn [id] (println id) (reader/read-string id)))
+                    cell))
+                cells))))
+        cols))))
+
 (defn assoc-default-results [query]
   (assoc query :vc-by-se-result {} :vc-by-ad-result {}))
 
 (defn prepare-queries [queries]
   (->> (map-indexed index-query queries)
+       (map resolve-code-list-item-ids)
        (mapv assoc-default-results)))
 
 (defn prepare-version
