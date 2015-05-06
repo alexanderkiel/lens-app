@@ -95,7 +95,7 @@ a.cell-adder, a.query-adder {
 .query-col-and-badge {
   position: absolute;
   left: -15px;
-  top: 120px;
+  top: 100px;
   transform: rotate(270deg);
 }
 

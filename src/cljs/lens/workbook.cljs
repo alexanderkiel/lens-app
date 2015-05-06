@@ -33,14 +33,15 @@
        (map (fn [[study-event count]]
               {"Study Event" study-event "Visits" count}))))
 
-(defn draw-vc-by-se-result [id result]
+(defn draw-vc-by-se-result [id result ticks]
   (let [data (visit-count-by-study-event result)
         svg (.newSvg js/dimple (str "#" id) "100%" "100%")
         chart (new js/dimple.chart svg (clj->js data))]
     (.setMargins chart 60 10 50 40)
     (.addOrderRule (.addCategoryAxis chart "x" "Study Event") "Study Event")
     (let [axis (.addMeasureAxis chart "y" "Visits")]
-      (set! (.-tickFormat axis) "d"))
+      (set! (.-tickFormat axis) "d")
+      (set! (.-ticks axis) ticks))
     (.addSeries chart nil (.-bar (.-plot js/dimple)))
     (.draw chart)))
 
@@ -51,14 +52,15 @@
        (map (fn [[age-decade count]]
               {"Age Decade" age-decade "Visits" count}))))
 
-(defn draw-vc-by-ad-result [id result]
+(defn draw-vc-by-ad-result [id result ticks]
   (let [data (visit-count-by-age-decade result)
         svg (.newSvg js/dimple (str "#" id) "100%" "100%")
         chart (new js/dimple.chart svg (clj->js data))]
     (.setMargins chart 60 10 50 40)
     (.addOrderRule (.addCategoryAxis chart "x" "Age Decade") "Age Decade")
     (let [axis (.addMeasureAxis chart "y" "Visits")]
-      (set! (.-tickFormat axis) "d"))
+      (set! (.-tickFormat axis) "d")
+      (set! (.-ticks axis) ticks))
     (.addSeries chart nil (.-bar (.-plot js/dimple)))
     (.draw chart)))
 
@@ -158,7 +160,7 @@
           id))
       (d/p {:class "text-muted"}
         (or (:name form) "loading..."))
-      (d/div {:id (cell-id opts id) :style {:height "200px"}}))))
+      (d/div {:id (cell-id opts id) :style {:height "150px"}}))))
 
 (defn single-item-group-expr [{:keys [id]}]
   {:items [[[:item-group id]]]})
@@ -172,7 +174,7 @@
   (render [_]
     (d/div
       (d/div (or (util/add-soft-hyphen (:name item-group)) "loading..."))
-      (d/div {:id (cell-id opts id) :style {:height "200px"}}))))
+      (d/div {:id (cell-id opts id) :style {:height "150px"}}))))
 
 (defcomponent item [{:keys [id] :as item} owner opts]
   (will-mount [_]
@@ -191,7 +193,7 @@
       (d/p {:class "text-muted"}
         (or (:question item) "loading..."))
       (when (s/is-numeric? item)
-        (d/div {:id (cell-id opts id) :style {:height "200px"}})))))
+        (d/div {:id (cell-id opts id) :style {:height "150px"}})))))
 
 (defcomponent code-list-item [cl-item]
   (render [_]
@@ -230,7 +232,7 @@
   (did-update [_ _ _]
     (when-let [result (:result term)]
       (clear-chart (cell-id opts id))
-      (draw-vc-by-se-result (cell-id opts id) result)))
+      (draw-vc-by-se-result (cell-id opts id) result 5)))
   (render-state [_ {:keys [hover dropdown-hover dropdown-active]}]
     (d/div
       (d/div {:class "query-cell" :ref "cell"
@@ -358,7 +360,7 @@
   (did-update [_ _ _]
     (clear-chart (vc-by-se-result-chart-id query-idx))
     (when-let [result (:result result)]
-      (draw-vc-by-se-result (vc-by-se-result-chart-id query-idx) result)))
+      (draw-vc-by-se-result (vc-by-se-result-chart-id query-idx) result 7)))
   (render [_]
     (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
       (d/div {:class "col-md-12"}
@@ -368,7 +370,7 @@
                 :style {:display (if (:result result) "none" "block")}}
             "Please add items to the query grid.")
           (d/div {:id (vc-by-se-result-chart-id query-idx)
-                  :style {:height (if (:result result) "400px" "0")}}))))))
+                  :style {:height (if (:result result) "250px" "0")}}))))))
 
 (defn vc-by-ad-result-chart-id [query-idx]
   (str "visit-count-by-age-decade-result-chart-" query-idx))
@@ -385,7 +387,7 @@
   (did-update [_ _ _]
     (clear-chart (vc-by-ad-result-chart-id query-idx))
     (when-let [result (:result result)]
-      (draw-vc-by-ad-result (vc-by-ad-result-chart-id query-idx) result)))
+      (draw-vc-by-ad-result (vc-by-ad-result-chart-id query-idx) result 7)))
   (render [_]
     (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
       (d/div {:class "col-md-12"}
@@ -395,7 +397,7 @@
                 :style {:display (if (:result result) "none" "block")}}
             "Please add items to the query grid.")
           (d/div {:id (vc-by-ad-result-chart-id query-idx)
-                  :style {:height (if (:result result) "400px" "0")}}))))))
+                  :style {:height (if (:result result) "250px" "0")}}))))))
 
 ;; ---- Query -----------------------------------------------------------------
 
