@@ -18,27 +18,50 @@
 ;; Local history of all versions of the current workbook
 (defonce version-history (atom []))
 
-;; ---- Visit Count By Study Event Query --------------------------------------
+;; ---- Charts ----------------------------------------------------------------
 
 (defn clear-chart [id]
   (when-let [n (dom/getElement id)]
     (while (.hasChildNodes n)
       (.removeChild n (.-lastChild n)))))
 
+;; ---- Visit Count By Study Event --------------------------------------------
+
 (defn visit-count-by-study-event [result]
   (->> (:visit-count-by-study-event result)
        (map (fn [[study-event count]]
               {"Study Event" study-event "Visits" count}))))
 
-(defn draw-query-result [id result]
+(defn draw-vc-by-se-result [id result]
   (let [data (visit-count-by-study-event result)
         svg (.newSvg js/dimple (str "#" id) "100%" "100%")
         chart (new js/dimple.chart svg (clj->js data))]
-    (.setMargins chart 50 10 50 40)
+    (.setMargins chart 60 10 50 40)
     (.addOrderRule (.addCategoryAxis chart "x" "Study Event") "Study Event")
-    (.addMeasureAxis chart "y" "Visits")
+    (let [axis (.addMeasureAxis chart "y" "Visits")]
+      (set! (.-tickFormat axis) "d"))
     (.addSeries chart nil (.-bar (.-plot js/dimple)))
     (.draw chart)))
+
+;; ---- Visit Count By Age Decade --------------------------------------------
+
+(defn visit-count-by-age-decade [result]
+  (->> (:visit-count-by-age-decade result)
+       (map (fn [[age-decade count]]
+              {"Age Decade" age-decade "Visits" count}))))
+
+(defn draw-vc-by-ad-result [id result]
+  (let [data (visit-count-by-age-decade result)
+        svg (.newSvg js/dimple (str "#" id) "100%" "100%")
+        chart (new js/dimple.chart svg (clj->js data))]
+    (.setMargins chart 60 10 50 40)
+    (.addOrderRule (.addCategoryAxis chart "x" "Age Decade") "Age Decade")
+    (let [axis (.addMeasureAxis chart "y" "Visits")]
+      (set! (.-tickFormat axis) "d"))
+    (.addSeries chart nil (.-bar (.-plot js/dimple)))
+    (.draw chart)))
+
+;; ---- Queries ---------------------------------------------------------------
 
 (defn execute-query!
   "Executes the query expr and publishes the result on result-topic."
@@ -200,7 +223,7 @@
   (did-update [_ _ _]
     (when-let [result (:result term)]
       (clear-chart (cell-id opts id))
-      (draw-query-result (cell-id opts id) result)))
+      (draw-vc-by-se-result (cell-id opts id) result)))
   (render-state [_ {:keys [hover dropdown-hover dropdown-active]}]
     (d/div
       (d/div {:class "query-cell" :ref "cell"
@@ -306,36 +329,64 @@
 
 ;; ---- Result ----------------------------------------------------------------
 
-(defn result-chart-id [query-idx]
-  (str "result-chart-" query-idx))
+(defn listen-on-query-updates [owner query-idx]
+  (bus/listen-on owner [:query-updated query-idx]
+    (fn [query-expr]
+      (if (seq (:items query-expr))
+        (execute-query! owner query-expr [:result-loaded query-idx])))))
 
-(defcomponent result
+(defn vc-by-se-result-chart-id [query-idx]
+  (str "visit-count-by-study-event-result-chart-" query-idx))
+
+(defcomponent visit-count-by-study-event-result
   "The result component subscribes to the :query-updated topic and executes a
   query whenever something is published."
   [result owner {:keys [query-idx collapsed]}]
   (will-mount [_]
-    (bus/listen-on owner [:query-updated query-idx]
-      (fn [query-expr]
-        (if (seq (:items query-expr))
-          (execute-query! owner query-expr [:result-loaded query-idx])
-          (om/transact! result #(dissoc % :result)))))
     (bus/listen-on owner [:result-loaded query-idx]
       #(om/update! result :result (select-keys % [:visit-count-by-study-event]))))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ _]
-    (clear-chart (result-chart-id query-idx))
+    (clear-chart (vc-by-se-result-chart-id query-idx))
     (when-let [result (:result result)]
-      (draw-query-result (result-chart-id query-idx) result)))
+      (draw-vc-by-se-result (vc-by-se-result-chart-id query-idx) result)))
   (render [_]
     (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
       (d/div {:class "col-md-12"}
         (d/div {:class "result"}
-          (d/p {:class "text-uppercase"} "Result")
+          (d/p {:class "text-uppercase"} "Visits by Study Event")
           (d/p {:class "text-muted text-center"
                 :style {:display (if (:result result) "none" "block")}}
             "Please add items to the query grid.")
-          (d/div {:id (result-chart-id query-idx)
+          (d/div {:id (vc-by-se-result-chart-id query-idx)
+                  :style {:height (if (:result result) "400px" "0")}}))))))
+
+(defn vc-by-ad-result-chart-id [query-idx]
+  (str "visit-count-by-age-decade-result-chart-" query-idx))
+
+(defcomponent visit-count-by-age-decade-result
+  "The result component subscribes to the :query-updated topic and executes a
+  query whenever something is published."
+  [result owner {:keys [query-idx collapsed]}]
+  (will-mount [_]
+    (bus/listen-on owner [:result-loaded query-idx]
+      #(om/update! result :result (select-keys % [:visit-count-by-age-decade]))))
+  (will-unmount [_]
+    (bus/unlisten-all owner))
+  (did-update [_ _ _]
+    (clear-chart (vc-by-ad-result-chart-id query-idx))
+    (when-let [result (:result result)]
+      (draw-vc-by-ad-result (vc-by-ad-result-chart-id query-idx) result)))
+  (render [_]
+    (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
+      (d/div {:class "col-md-12"}
+        (d/div {:class "result"}
+          (d/p {:class "text-uppercase"} "Visits by Age Decade")
+          (d/p {:class "text-muted text-center"
+                :style {:display (if (:result result) "none" "block")}}
+            "Please add items to the query grid.")
+          (d/div {:id (vc-by-ad-result-chart-id query-idx)
                   :style {:height (if (:result result) "400px" "0")}}))))))
 
 ;; ---- Query -----------------------------------------------------------------
@@ -357,6 +408,7 @@
 
 (defcomponent query [{:keys [idx collapsed] :as query} owner opts]
   (will-mount [_]
+    (listen-on-query-updates owner idx)
     (let [expr (build-query-expr query)]
       (publish-query-expr! owner idx expr)))
   (will-update [_ new-query _]
@@ -370,7 +422,9 @@
                 {:opts {:idx idx :collapsed collapsed}})
       (om/build query-grid (:query-grid query)
                 {:opts (assoc opts :query-idx idx :collapsed collapsed)})
-      (om/build result (:result query)
+      (om/build visit-count-by-study-event-result (:vc-by-se-result query)
+                {:opts (assoc opts :query-idx idx :collapsed collapsed)})
+      (om/build visit-count-by-age-decade-result (:vc-by-ad-result query)
                 {:opts (assoc opts :query-idx idx :collapsed collapsed)}))))
 
 ;; ---- Workbook --------------------------------------------------------------
@@ -382,9 +436,12 @@
   (-> (update-in query [:query-grid :cols] #(vec (map-indexed assoc-idx %)))
       (assoc :idx idx)))
 
+(defn assoc-default-results [query]
+  (assoc query :vc-by-se-result {} :vc-by-ad-result {}))
+
 (defn prepare-queries [queries]
   (->> (map-indexed index-query queries)
-       (mapv #(assoc % :result {}))))
+       (mapv assoc-default-results)))
 
 (defn prepare-version
   "Adds some stuff to the version so that it can be used as part of the app
@@ -414,8 +471,9 @@
     (om/transact! version [] #(update-state % msg) :history)))
 
 (defn empty-query [idx]
-  (index-query idx {:query-grid {:cols (vec (repeat 3 {:cells []}))}
-                    :result {}}))
+  (->> {:query-grid {:cols (vec (repeat 3 {:cells []}))}}
+       (assoc-default-results)
+       (index-query idx)))
 
 (defn add-query-msg []
   {:form-rel :lens/add-query
