@@ -200,9 +200,7 @@
   (did-update [_ _ _]
     (when-let [result (:result term)]
       (clear-chart (cell-id opts id))
-      (draw-query-result (cell-id opts id) result))
-    (let [cell (om/get-node owner "cell")]
-      (println (.-clientWidth cell))))
+      (draw-query-result (cell-id opts id) result)))
   (render-state [_ {:keys [hover dropdown-hover dropdown-active]}]
     (d/div
       (d/div {:class "query-cell" :ref "cell"
@@ -318,7 +316,6 @@
   (will-mount [_]
     (bus/listen-on owner [:query-updated query-idx]
       (fn [query-expr]
-        (println :query-expr query-expr)
         (if (seq (:items query-expr))
           (execute-query! owner query-expr [:result-loaded query-idx])
           (om/transact! result #(dissoc % :result)))))
@@ -327,12 +324,10 @@
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ _]
-    (println :did-update (:result result))
     (clear-chart (result-chart-id query-idx))
     (when-let [result (:result result)]
       (draw-query-result (result-chart-id query-idx) result)))
   (render [_]
-    (println :result :render)
     (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
       (d/div {:class "col-md-12"}
         (d/div {:class "result"}
