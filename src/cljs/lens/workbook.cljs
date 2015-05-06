@@ -47,21 +47,31 @@
 
 ;; ---- Visit Count By Age Decade --------------------------------------------
 
-(defn visit-count-by-age-decade [result]
-  (->> (:visit-count-by-age-decade result)
-       (map (fn [[age-decade count]]
-              {"Age Decade" age-decade "Visits" count}))))
+(defn visit-count-by-age-decade-and-sex [result]
+  (->> (:visit-count-by-age-decade-and-sex result)
+       (reduce-kv
+         (fn [res age-decade count-by-sex]
+           (reduce-kv
+             (fn [res sex count]
+               (conj res {"Age Decade" age-decade "Sex" (name sex) "Visits" count}))
+             res
+             count-by-sex))
+         [])))
 
-(defn draw-vc-by-ad-result [id result ticks]
-  (let [data (visit-count-by-age-decade result)
+(defn draw-vc-by-ad-and-sex-result [id result ticks]
+  (let [data (visit-count-by-age-decade-and-sex result)
         svg (.newSvg js/dimple (str "#" id) "100%" "100%")
-        chart (new js/dimple.chart svg (clj->js data))]
+        chart (new js/dimple.chart svg (clj->js data))
+        width (.-clientWidth (dom/getElement id))]
     (.setMargins chart 60 10 50 40)
     (.addOrderRule (.addCategoryAxis chart "x" "Age Decade") "Age Decade")
     (let [axis (.addMeasureAxis chart "y" "Visits")]
       (set! (.-tickFormat axis) "d")
       (set! (.-ticks axis) ticks))
-    (.addSeries chart nil (.-bar (.-plot js/dimple)))
+    (.addOrderRule (.addSeries chart "Sex" (.-bar (.-plot js/dimple))) "Sex")
+    (.assignColor chart "male" "#80B1D3" "#6b94b0" 0.8)
+    (.assignColor chart "female" "#FB8072" "#d26b5f" 0.8)
+    (.addLegend chart (- width 240) 15 200 30 "right")
     (.draw chart)))
 
 ;; ---- Queries ---------------------------------------------------------------
@@ -372,7 +382,7 @@
           (d/div {:id (vc-by-se-result-chart-id query-idx)
                   :style {:height (if (:result result) "250px" "0")}}))))))
 
-(defn vc-by-ad-result-chart-id [query-idx]
+(defn vc-by-ad-and-sex-result-chart-id [query-idx]
   (str "visit-count-by-age-decade-result-chart-" query-idx))
 
 (defcomponent visit-count-by-age-decade-result
@@ -381,13 +391,13 @@
   [result owner {:keys [query-idx collapsed]}]
   (will-mount [_]
     (bus/listen-on owner [:result-loaded query-idx]
-      #(om/update! result :result (select-keys % [:visit-count-by-age-decade]))))
+      #(om/update! result :result (select-keys % [:visit-count-by-age-decade-and-sex]))))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ _]
-    (clear-chart (vc-by-ad-result-chart-id query-idx))
+    (clear-chart (vc-by-ad-and-sex-result-chart-id query-idx))
     (when-let [result (:result result)]
-      (draw-vc-by-ad-result (vc-by-ad-result-chart-id query-idx) result 7)))
+      (draw-vc-by-ad-and-sex-result (vc-by-ad-and-sex-result-chart-id query-idx) result 7)))
   (render [_]
     (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
       (d/div {:class "col-md-12"}
@@ -396,7 +406,7 @@
           (d/p {:class "text-muted text-center"
                 :style {:display (if (:result result) "none" "block")}}
             "Please add items to the query grid.")
-          (d/div {:id (vc-by-ad-result-chart-id query-idx)
+          (d/div {:id (vc-by-ad-and-sex-result-chart-id query-idx)
                   :style {:height (if (:result result) "250px" "0")}}))))))
 
 ;; ---- Query -----------------------------------------------------------------
@@ -434,7 +444,7 @@
                 {:opts (assoc opts :query-idx idx :collapsed collapsed)})
       (om/build visit-count-by-study-event-result (:vc-by-se-result query)
                 {:opts (assoc opts :query-idx idx :collapsed collapsed)})
-      (om/build visit-count-by-age-decade-result (:vc-by-ad-result query)
+      (om/build visit-count-by-age-decade-result (:vc-by-ad-and-sex-result query)
                 {:opts (assoc opts :query-idx idx :collapsed collapsed)}))))
 
 ;; ---- Workbook --------------------------------------------------------------
@@ -465,7 +475,7 @@
         cols))))
 
 (defn assoc-default-results [query]
-  (assoc query :vc-by-se-result {} :vc-by-ad-result {}))
+  (assoc query :vc-by-se-result {} :vc-by-ad-and-sex-result {}))
 
 (defn prepare-queries [queries]
   (->> (map-indexed index-query queries)
