@@ -155,7 +155,7 @@
     (when-not (if (s/is-numeric? item) (:value-histogram item) (:question item))
       (load-term! owner :lens/find-item opts id)))
   (did-update [_ _ _]
-    (when-let [value-histogram (value-hist item)]
+    (when-let [value-histogram (seq (value-hist item))]
       (clear-chart (cell-id opts id))
       (draw-item-chart (cell-id opts id) value-histogram)))
   (render [_]
