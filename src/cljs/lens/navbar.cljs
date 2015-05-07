@@ -43,8 +43,8 @@
         (om/set-state! owner :password ""))))
   (will-unmount [_]
     (bus/unlisten-all owner))
-  (did-update [_ _ _]
-    (when (om/get-state owner :expanded)
+  (did-update [_ _ prev-state]
+    (when (and (not (:expanded prev-state)) (om/get-state owner :expanded))
       (.focus (om/get-node owner "username"))))
   (render-state [_ {:keys [username password expanded] :as state}]
     (if expanded
