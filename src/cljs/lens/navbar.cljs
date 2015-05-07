@@ -31,6 +31,9 @@
 
 ;; ---- Sign In/Out -----------------------------------------------------------
 
+(defn on-cancel [owner]
+  (om/update-state! owner #(assoc % :username "" :password "" :expanded false)))
+
 (defcomponent sign-in-form [_ owner]
   (init-state [_]
       {:username ""
@@ -63,7 +66,7 @@
         (d/button {:class "btn btn-primary" :type "button"
                    :on-click (h (bus/publish! owner :sign-in state))} "Go")
         (d/button {:class "btn btn-default" :type "button"
-                   :on-click (h (om/set-state! owner :expanded false))} "Cancel"))
+                   :on-click (h (on-cancel owner))} "Cancel"))
 
       (d/button {:class "btn btn-default navbar-btn navbar-right"
                  :on-click (h (om/set-state! owner :expanded true))
