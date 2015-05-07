@@ -41,9 +41,7 @@
        :expanded false})
   (will-mount [_]
     (bus/listen-on owner :signed-in
-      #(do
-        (om/set-state! owner :username "")
-        (om/set-state! owner :password ""))))
+      (om/update-state! owner #(assoc % :username "" :password ""))))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (did-update [_ _ prev-state]
