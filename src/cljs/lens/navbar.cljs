@@ -21,7 +21,8 @@
     (bus/unlisten-all owner))
   (render-state [_ {:keys [enabled]}]
     (d/li (when-not enabled {:class "disabled"})
-      (d/a {:href "#" :on-click (h (bus/publish! owner :undo {}))} (fa/span :undo)))))
+      (d/a {:href "#" :title "Undo"
+            :on-click (h (bus/publish! owner :undo {}))} (fa/span :undo)))))
 
 (defcomponent nav [nav]
   (render [_]
