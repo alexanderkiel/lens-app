@@ -97,7 +97,7 @@
 
 (defn draw-item-chart [id value-hist]
   (let [data value-hist
-        svg (.newSvg js/dimple (str "#" id) "100%" 200)
+        svg (.newSvg js/dimple (str "#" id) "100%" "100%")
         chart (new js/dimple.chart svg (clj->js data))]
     (.setMargins chart 50 10 50 35)
     (.addCategoryAxis chart "x" "Bucket")
