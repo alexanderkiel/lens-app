@@ -107,6 +107,10 @@
 
 ;; ---- Headline --------------------------------------------------------------
 
+(defn collapsed-sign [collapsed]
+  (d/span {:class (str "fa fa-" (if collapsed "chevron-right" "chevron-down"))
+           :style {:margin-right "5px"}}))
+
 (defn remove-query-msg [idx]
   {:form-rel :lens/remove-query
    :params {:idx idx}
@@ -116,11 +120,28 @@
                                          (map-indexed (fn [i q] (assoc q :idx i)))
                                          (vec))))})
 
-(defn query-remove-button [owner idx]
-  (d/span {:class "fa fa-minus-circle"
+(defn remove-query-button [owner idx]
+  (d/span {:class "fa fa-minus-square-o"
+           :title "Remove Query"
            :role "button"
            :style {:margin-left "10px"}
            :on-click (h (bus/publish! owner ::tx (remove-query-msg idx)))}))
+
+(defn duplicate-query-msg [idx]
+  {:form-rel :lens/duplicate-query
+   :params {:idx idx}
+   :state-fn
+   (fn [version]
+     (update-in version [:queries] #(->> (concat (take (inc idx) %) (drop idx %))
+                                         (map-indexed (fn [i q] (assoc q :idx i)))
+                                         (vec))))})
+
+(defn duplicate-query-button [owner idx]
+  (d/span {:class "fa fa-files-o"
+           :title "Duplicate Query"
+           :role "button"
+           :style {:margin-left "10px"}
+           :on-click (h (bus/publish! owner ::tx (duplicate-query-msg idx)))}))
 
 (defcomponent headline [headline owner {:keys [idx collapsed]}]
   (render-state [_ {:keys [hover]}]
@@ -128,13 +149,12 @@
       (d/div {:class "col-md-12"
               :on-mouse-enter #(om/set-state! owner :hover true)
               :on-mouse-leave #(om/set-state! owner :hover false)}
-        (d/h4 {:class "text-uppercase text-muted"}
-          (d/span {:class (str "fa fa-" (if collapsed "chevron-right"
-                                                      "chevron-down"))
-                   :style {:margin-right "5px"}} )
+        (apply d/h4 {:class "text-uppercase text-muted"}
+          (collapsed-sign collapsed)
           headline
           (when hover
-            (query-remove-button owner idx)))))))
+            [(remove-query-button owner idx)
+             (duplicate-query-button owner idx)]))))))
 
 ;; ---- Query Grid ------------------------------------------------------------
 
