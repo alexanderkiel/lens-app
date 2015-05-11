@@ -96,6 +96,7 @@
       (d/div {:class "container-fluid"}
         (d/div {:class "navbar-header"}
           (d/a {:class "navbar-brand" :href "#"
+                :title "Home"
                 :on-click (h (bus/publish! owner :route {:handler :index}))}
             "Lens"))
         (om/build nav (:nav navbar))
