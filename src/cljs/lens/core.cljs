@@ -61,17 +61,17 @@
 (defn load-count-loop [owner load-ch]
   (go-loop []
     (when-let [{:keys [uri result-ch]} (<! load-ch)]
-      (io/get-xhr {:url uri :snapshot (util/get-most-recent-snapshot-id owner)
-                   :on-complete #(put! result-ch %)})
+      (io/get-xhr {:url uri :on-complete #(put! result-ch %)})
       (recur))))
 
 (defn load!
   "Fetches uri and publishes the result under loaded-topic."
-  [owner uri loaded-topic]
+  [owner uri auth loaded-topic]
   {:pre [owner uri loaded-topic]}
-  (-> {:url uri :on-complete #(bus/publish! owner loaded-topic %)}
-      (auth/assoc-auth-token)
-      (io/get-xhr)))
+  (let [req {:url uri :on-complete #(bus/publish! owner loaded-topic %)}]
+    (if auth
+      (io/get-xhr (auth/assoc-auth-token req))
+      (io/get-xhr req))))
 
 (defn resolv-uri
   "Tries to resolv the uri of the link relation using links from all
@@ -82,8 +82,8 @@
 (defn resolv-action
   "Tries to resolv the action of the form relation using forms from all
   service documents. Returns nil if not found."
-  [owner link-rel]
-  (:action (link-rel @(om/get-shared owner :forms))))
+  [owner form-rel]
+  (:action (form-rel @(om/get-shared owner :forms))))
 
 (defn load-loop
   "Listens on :load and :service-document-loaded topics. Tries to load
@@ -93,17 +93,17 @@
   [owner]
   (bus/listen-on-mult owner
     {:load
-     (fn [unresolvables {:keys [uri link-rel loaded-topic] :as msg}]
+     (fn [unresolvables {:keys [uri link-rel auth loaded-topic] :as msg}]
        (assert (or uri link-rel))
        (if-let [uri (or uri (resolv-uri owner link-rel))]
-         (do (load! owner uri loaded-topic) unresolvables)
+         (do (load! owner uri auth loaded-topic) unresolvables)
          (conj unresolvables msg)))
      :service-document-loaded
      (fn [unresolvables]
        (reduce
-         (fn [unresolvables {:keys [link-rel loaded-topic] :as unresolvable}]
+         (fn [unresolvables {:keys [link-rel auth loaded-topic] :as unresolvable}]
            (if-let [uri (resolv-uri owner link-rel)]
-             (do (load! owner uri loaded-topic) unresolvables)
+             (do (load! owner uri auth loaded-topic) unresolvables)
              (conj unresolvables unresolvable)))
          #{}
          unresolvables))}
@@ -115,7 +115,6 @@
   [owner action more]
   {:pre [owner action (:loaded-topic more)]}
   (-> {:url action :data (:params more)
-       :snapshot (:snapshot more)
        :on-complete #(bus/publish! owner (:loaded-topic more) %)}
       (auth/assoc-auth-token)
       (io/get-form)))
@@ -142,6 +141,39 @@
          #{}
          unresolvables))}
     #{}))
+
+(defn resolv-most-recent-snapshot-action
+  "Tries to resolv the action of the form relation using forms of the most
+  recent snapshot. Returns nil if not found."
+  [owner link-rel]
+  (:action (link-rel (:forms @(om/get-shared owner :most-recent-snapshot)))))
+
+(defn most-recent-snapshot-query-loop
+  "Listens on :most-recent-snapshot-query and :most-recent-snapshot-loaded
+  topics. Tries to issue a query to the messages :form-rel. Spools messages with
+  unresolvable form relations and tries to resolv them after the most recent
+  snapshot was loaded."
+  [owner]
+  (bus/listen-on-mult owner
+    {:most-recent-snapshot-query
+     (fn [{:keys [snapshot] :as state} {:keys [form-rel] :as msg}]
+       (assert form-rel)
+       (if-let [action (:action (form-rel (:forms snapshot)))]
+         (do (query! owner action msg) state)
+         (update-in state [:unresolvables] #(conj % msg))))
+     :most-recent-snapshot-loaded
+     (fn [{:keys [unresolvables]} snapshot]
+       {:unresolvables
+        (reduce
+          (fn [unresolvables {:keys [form-rel] :as unresolvable}]
+            (if-let [action (:action (form-rel (:forms snapshot)))]
+              (do (query! owner action unresolvable) unresolvables)
+              (conj unresolvables unresolvable)))
+          #{}
+          unresolvables)
+        :snapshot snapshot})}
+    {:unresolvables #{}
+     :snapshot nil}))
 
 (defn post!
   "Issues a post to action with params and publishes the result under
@@ -211,13 +243,9 @@
       (om/refresh! owner)
       (recur))))
 
-(defn load-all-snapshots [owner]
-  (bus/publish! owner :load {:link-rel :lens/all-snapshots
-                             :loaded-topic :loaded-snapshots}))
-
-(defn on-loaded-snapshots [owner doc]
-  (let [snapshots (:lens/snapshots (:embedded doc))]
-    (reset! (om/get-shared owner :snapshots) snapshots)))
+(defn load-most-recent-snapshot [owner]
+  (bus/publish! owner :load {:link-rel :lens/most-recent-snapshot
+                             :loaded-topic :most-recent-snapshot-loaded}))
 
 (defcomponent app [app-state owner]
   (will-mount [_]
@@ -227,15 +255,16 @@
     (service-documents-loop owner)
     (load-loop owner)
     (query-loop owner)
+    (most-recent-snapshot-query-loop owner)
     (post-loop owner)
     (put-loop owner)
     (figwheel-reload-loop owner)
     (load-count-loop owner (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
-    (bus/listen-on owner :loaded-workbook #(on-loaded-workbook app-state owner %))
-    (bus/listen-on owner :loaded-snapshots #(on-loaded-snapshots owner %))
+    (bus/listen-on owner :loaded-workbook
+      #(on-loaded-workbook app-state owner %))
     (load-all-service-documents owner)
-    (load-all-snapshots owner))
+    (load-most-recent-snapshot owner))
   (will-unmount [_]
     (bus/unlisten-all owner)
     (async/close! (om/get-shared owner :count-load-ch)))
@@ -268,7 +297,7 @@
             :event-bus (bus/init-bus)
             :links (atom {})
             :forms (atom {})
-            :snapshots (atom [])}
+            :most-recent-snapshot (atom nil)}
    :tx-listen
    (fn [{:keys [path old-value new-value tag] :as tx} _]
      (condp = tag

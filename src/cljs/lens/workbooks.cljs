@@ -59,6 +59,7 @@
 
 (defn load-workbooks! [owner key]
   (bus/publish! owner :load {:link-rel (util/prepend-ns "lens" key)
+                             :auth true
                              :loaded-topic key}))
 
 (defn on-signed-in [owner]

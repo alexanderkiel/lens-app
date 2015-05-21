@@ -10,7 +10,9 @@
 
   :undo-enabled - set enabled state of the undo menu item
     true
-    false"
+    false
+
+  :query - top level queries available through service document forms"
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [cljs.core.async :as async :refer [<!]]
             [om.core :as om]))

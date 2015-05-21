@@ -79,10 +79,10 @@
 (defn execute-query!
   "Executes the query expr and publishes the result on result-topic."
   [owner expr result-topic]
-  (bus/publish! owner :query {:form-rel :lens/query
-                              :params {:expr expr}
-                              :snapshot (util/get-most-recent-snapshot-id owner)
-                              :loaded-topic result-topic}))
+  (bus/publish! owner :most-recent-snapshot-query
+                {:form-rel :lens/query
+                 :params {:expr expr}
+                 :loaded-topic result-topic}))
 
 ;; ---- Item Value Histogram --------------------------------------------------
 
@@ -174,7 +174,6 @@
 (defn load-term! [owner form-rel opts id]
   (bus/publish! owner :query {:form-rel form-rel
                               :params {:id id}
-                              :snapshot (util/get-most-recent-snapshot-id owner)
                               :loaded-topic (term-loaded opts id)}))
 
 (defcomponent form [{:keys [id] :as form} owner opts]
@@ -487,9 +486,8 @@
             (fn [cells]
               (mapv
                 (fn [{:keys [type] :as cell}]
-                  (println :resolve :id :in cell)
                   (if (= :code-list-item type)
-                    (update-in cell [:id] (fn [id] (println id) (reader/read-string id)))
+                    (update-in cell [:id] (fn [id] (reader/read-string id)))
                     cell))
                 cells))))
         cols))))

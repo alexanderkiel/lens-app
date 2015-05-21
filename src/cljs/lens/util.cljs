@@ -37,6 +37,3 @@
 (defn set-title! [title]
   (when-not (= title (.-title js/document))
     (set! (.-title js/document) title)))
-
-(defn get-most-recent-snapshot-id [owner]
-  (:id (first @(om/get-shared owner :snapshots))))
