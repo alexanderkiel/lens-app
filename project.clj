@@ -4,7 +4,7 @@
 
   :min-lein-version "2.0.0"
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0-RC1"]
                  [org.clojure/tools.cli "0.3.1"]
                  [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/clojurescript "0.0-3211"]
@@ -13,10 +13,6 @@
                  [ring/ring-core "1.3.2"]
                  [bidi "1.18.10" :exclusions [ring/ring-core]]
                  [compojure "1.3.3"]
-                 [ring-middleware-format "0.5.0"
-                  :exclusions [org.clojure/tools.reader
-                               ring ring/ring-core
-                               commons-codec]]
                  [org.omcljs/om "0.8.8" :scope "provided"]
                  [prismatic/plumbing "0.4.3"]
                  [prismatic/schema "0.4.2"]
@@ -51,17 +47,11 @@
                          :compiler
                          {:output-to "resources/public/js/lens.js"
                           :optimizations :advanced
-                          :pretty-print false}}]}}
-
-             :production-run
-             {:main lens.core
-              :jvm-opts ["-Xmx4g"]
-
-              :cljsbuild
-              {:builds []}}}
+                          :pretty-print false}}]}}}
 
   :plugins [[lein-cljsbuild "1.0.5"]
-            [lein-figwheel "0.2.9"]]
+            [lein-figwheel "0.3.3" :exclusions [org.codehaus.plexus/plexus-utils
+                                                org.clojure/clojure]]]
 
   :source-paths ["src/clj" "src/cljs"]
   :resource-paths ["resources"]
