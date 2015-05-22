@@ -1,0 +1,92 @@
+body {
+  height: 100%;
+  padding-top: 70px;
+  background-color: #E5E5E5;
+}
+
+/* ---- Navigation --------------------------------------------------------- */
+
+/* Fix for: https://github.com/twbs/bootstrap/issues/15706 */
+.container-fluid > .navbar-text.navbar-right:last-child,
+.container-fluid > .navbar-btn.navbar-right:last-child {
+    margin-right: 0;
+}
+
+.navbar-default {
+  border: none;
+  color: #272727;
+  background-color: #FFF;
+  box-shadow: rgba(0, 0, 0, 0.298039) 0 4px 2px -2px;
+}
+
+.navbar-form > *, .navbar-form > .form-group > * {
+   margin-right: 5px;
+}
+
+.navbar-form > *:last-child, .navbar-form > .form-group > *:last-child {
+   margin-right: 0;
+}
+
+/* ---- Workbook Thumb ----------------------------------------------------- */
+
+.workbook-thumb {
+  padding: 10px;
+  border: 1px solid #D8D8D8;
+  border-bottom-width: 2px;
+  margin-bottom: 20px;
+  background-color: #FFF;
+}
+
+.workbook-thumb-create {
+  color: #777;
+  text-align: center;
+  font-size: 150%;
+  line-height: 1;
+}
+
+/* ---- Query -------------------------------------------------------------- */
+
+.query {
+  margin-bottom: 20px;
+}
+
+.query h3 {
+  padding: 10px;
+  border: 1px solid #D8D8D8;
+  border-bottom-width: 2px;
+  margin-bottom: 20px;
+  background-color: #FFF;
+}
+
+/* ---- Query - Cell ------------------------------------------------------- */
+
+.query-cell {
+  padding: 10px;
+  border: 1px solid #D8D8D8;
+  border-bottom-width: 2px;
+  margin-bottom: 20px;
+  background-color: #FFF;
+}
+
+.query-cell-empty {
+  color: #777;
+  text-align: center;
+  font-size: 150%;
+  line-height: 1;
+}
+
+.query-cell .tooltip {
+  position: absolute;
+  white-space: nowrap;
+  opacity: 1;
+}
+
+/* ---- Result ------------------------------------------------------------- */
+
+.result {
+  padding: 10px;
+  border: 1px solid #D8D8D8;
+  border-bottom-width: 2px;
+  margin-bottom: 20px;
+  background-color: #FFF;
+}
