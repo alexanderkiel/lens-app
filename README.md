@@ -15,16 +15,11 @@ to JavaScript compilation works using:
 
     lein with-profile production compile :all
 
-## Build a Docker Container
+## Run Lens App with Docker
 
-This project contains a Dockerfile which builds a container running a [Nginx][7]
-web server which delivers the static files of the Lens App web application and
-proxies the backend services.
-
-You have to run `lein with-profile production compile :all` before building the
-container. Building work with
-
-    docker build -t lens-app .
+There is an automated build of Lens App on [Docker Hub][10] which builds a
+container running a [Nginx][7] web server which delivers the static files of the
+Lens App web application and proxies the backend services.
 
 The container exposes port 80 and needs three environment variables
 
@@ -34,7 +29,7 @@ The container exposes port 80 and needs three environment variables
 
 Start the container with the following command
 
-    docker run -p 80:80 -e AUTH_HOST=<...> -e WORKBOOK_HOST=<...> -e WAREHOUSE_HOST=<...> lens-app
+    docker run -p 80:80 -e AUTH_HOST=<...> -e WORKBOOK_HOST=<...> -e WAREHOUSE_HOST=<...> akiel/lens-app
 
 ## Develop
 
@@ -85,3 +80,4 @@ TODO: React, Om
 [7]: <http://nginx.org/>
 [8]: <https://github.com/alexanderkiel/lens-workbook>
 [9]: <https://github.com/alexanderkiel/lens-warehouse>
+[10]: <https://registry.hub.docker.com/u/akiel/lens-app/>
