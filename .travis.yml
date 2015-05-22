@@ -17,3 +17,4 @@ deploy:
     skip_cleanup: true
     region: eu-central-1
     endpoint: s3.eu-central-1.amazonaws.com
+after_deploy: 'curl -H "Content-Type: application/json" --data ''{"build": true}'' -X POST https://registry.hub.docker.com/u/akiel/lens-app/trigger/a0f1155b-1e97-4380-b787-30a98662b74f/'
