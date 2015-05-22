@@ -1,2 +1,10 @@
 language: clojure
 script: lein with-profile production compile :all
+deploy:
+  provider: releases
+  api_key:
+    secure: kvygJ/E+YVe0sSuDZXaNYtn9DXxx8RovAvCDnsdMjEkWYwTfg8yUaMdlqvzzYojym/FKRr05RzSjClDbWJ8JnU4su2iMjOMuHzrhH8UALZQIM2yaxporVugh32OYSFZDYEA2oUwg0TRD7GPfb7aJYbkmu2AWb5ZubCwXQKSWauOFVnXY6xmCZl7Z+0xAZJBHFch7LyGXk2tc3sYd4qwSla46ysVj0AB5A5ymQbmrlg+QIk5jOBDB6/3Q947Lzq9tupjuMH7dB1bmYJ3vAXBbUfVpTtlAFYjnsUF0R5kJca2G2VGputKgIvU68OuTu+UgRTrMJBKY6W1cuP9NuWR1/dvNE6H8rW0mL5xBUwYtTkNlh6YkAAUkkIh0gEB2X4MpA73dVdNv3gwQoSFysGT0tO4kHlNwgGPYY1iuHJPkjMImxP4p3L3MpQa7+KyxOafKwIX9BkZW+jY6vcv+TGt0Wi3Lw4RSMq8twFes+GgI+OiBasg1myOqpWsaPkgSucm+2KE66EnA09tq5fO5fw0PxlDej6HHFvALrqmLrjQemfvUvw606pwC9UjELs3Ia8v7kKE2Vovd/7kA+KCe3Vds8s+T6f+dPhQLQOOSNIuR9MuXQo14mbjc4mJXv6GJC80OoJhCqDXodAqrnFM8WhXxDmUfAMFU/hV2QbF4tII5SSk=
+  file: resources/public/js/lens.js
+  skip_cleanup: true
+  on:
+    tags: true
