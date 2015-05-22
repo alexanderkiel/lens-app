@@ -1,5 +1,7 @@
 # Lens App
 
+[![Build Status](https://travis-ci.org/alexanderkiel/lens-app.svg?branch=master)](https://travis-ci.org/alexanderkiel/lens-app)
+
 Lens is a tool for online analytical data processing in medical studies.
 
 The Lens application is a static ClojureScript frontend single page app using 
@@ -26,9 +28,9 @@ container. Building work with
 
 The container exposes port 80 and needs three environment variables
 
- * `AUTH_HOST` - the hostname of the [Lens Auth Service][8]
- * `WORKBOOK_HOST` - the hostname of the [Lens Workbook Service][9]
- * `WAREHOUSE_HOST` - the hostname of the [Lens Warehouse Service][10]
+ * `AUTH_HOST` - the hostname of the [Lens Auth Service][5]
+ * `WORKBOOK_HOST` - the hostname of the [Lens Workbook Service][8]
+ * `WAREHOUSE_HOST` - the hostname of the [Lens Warehouse Service][9]
 
 Start the container with the following command
 
@@ -56,7 +58,7 @@ the appropiate port and starting them with `foreman start`.
 ## Architecture
 
 Lens as a system consists of one frontend web application and various backend
-services and so follows the principle of a [microservice architecture][1].
+services and so follows the style of a [microservice architecture][1].
 
 The frontend application Lens App is build after the principles described in
 [Static Apps][2]. Lens App is written in [ClojureScript][3] which is compiled to
@@ -81,6 +83,5 @@ TODO: React, Om
 [5]: <https://github.com/alexanderkiel/lens-auth>
 [6]: <https://github.com/bhauman/lein-figwheel>
 [7]: <http://nginx.org/>
-[8]: <https://github.com/alexanderkiel/lens-auth>
-[9]: <https://github.com/alexanderkiel/lens-workbook>
-[10]: <https://github.com/alexanderkiel/lens-warehouse>
+[8]: <https://github.com/alexanderkiel/lens-workbook>
+[9]: <https://github.com/alexanderkiel/lens-warehouse>
