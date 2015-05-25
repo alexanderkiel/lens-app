@@ -1,12 +1,12 @@
+__Please start at the [Top-Level Lens Repo][11].__
+
 # Lens App
 
 [![Build Status](https://travis-ci.org/alexanderkiel/lens-app.svg?branch=master)](https://travis-ci.org/alexanderkiel/lens-app)
 
-Lens is a tool for online analytical data processing in medical studies.
-
-The Lens application is a static ClojureScript frontend single page app using 
-various backend services. Please see section [Architecture](#architecture) for
-more information.
+The Lens App is a static ClojureScript frontend single page app using various 
+backend services. Please see section [Architecture](#architecture) for more 
+information.
 
 ## Build
 
@@ -81,3 +81,4 @@ TODO: React, Om
 [8]: <https://github.com/alexanderkiel/lens-workbook>
 [9]: <https://github.com/alexanderkiel/lens-warehouse>
 [10]: <https://registry.hub.docker.com/u/akiel/lens-app/>
+[11]: <https://github.com/alexanderkiel/lens>
