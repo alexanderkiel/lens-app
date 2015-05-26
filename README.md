@@ -71,6 +71,12 @@ http://www.staticapps.org/articles/authentication-and-authorization
 
 TODO: React, Om
 
+## License
+
+Copyright © 2015 Alexander Kiel
+
+Distributed under the Eclipse Public License, the same as Clojure.
+
 [1]: <http://martinfowler.com/articles/microservices.html>
 [2]: <http://www.staticapps.org/>
 [3]: <https://github.com/clojure/clojurescript>
