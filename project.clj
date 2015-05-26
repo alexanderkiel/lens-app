@@ -1,6 +1,8 @@
 (defproject lens-app "0.1-SNAPSHOT"
   :description "Lens is a tool for online analytical data processing in medical studies."
   :url "https://github.com/alexanderkiel/lens-app"
+  :license {:name "Eclipse"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :min-lein-version "2.0.0"
 
