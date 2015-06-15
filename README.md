@@ -33,7 +33,7 @@ Start the container with the following command
 
 ## Develop
 
-Lens uses [figwheel][6]
+Lens App uses [figwheel][6]
 
     rlwrap lein figwheel
 
