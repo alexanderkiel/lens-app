@@ -5,7 +5,6 @@
             [om.core :as om :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
-            [lens.io :as io]
             [lens.terms :as terms]
             [lens.event-bus :as bus]))
 
