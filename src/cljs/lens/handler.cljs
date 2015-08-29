@@ -1,7 +1,7 @@
 (ns lens.handler
   "Routing Handler
 
-  All handlers are called with a map of :app, :owner and :params."
+  All handlers are called with a map of :app-state, :owner and :params."
   (:require-macros [plumbing.core :refer [defnk]])
   (:require [om.core :as om :include-macros true]
             [lens.event-bus :as bus]))
