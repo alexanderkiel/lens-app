@@ -13,7 +13,7 @@
   ["/" {"" :index
         ["w/" :id] :workbook}])
 
-(defn create-history []
+(defn- create-history []
   (doto (Html5History.)
     (.setUseFragment false)
     (.setPathPrefix "")))
