@@ -1,7 +1,7 @@
 (ns lens.query
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [clojure.data :as data]
-            [om.core :as om :include-macros true]
+            [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [cljs.core.async :refer [put! chan <!]]

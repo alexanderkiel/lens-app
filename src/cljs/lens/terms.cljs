@@ -3,7 +3,7 @@
                    [lens.macros :refer [h]])
   (:require [plumbing.core :refer [assoc-when conj-when]]
             [clojure.string :as str]
-            [om.core :as om :include-macros true]
+            [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [cljs.core.async :refer [put! close! chan <! alts! sub]]

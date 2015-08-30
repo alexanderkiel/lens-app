@@ -1,7 +1,7 @@
 (ns lens.component
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [cljs.core.async :as async :refer [put! chan <! >! alts!]]
-            [om.core :as om :include-macros true]
+            [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.schema :refer [Term]]

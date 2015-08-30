@@ -1,6 +1,6 @@
 (ns lens.scroll-list
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
-  (:require [om.core :as om :include-macros true]
+  (:require [om.core :as om]
             [om.dom :as dom :include-macros true]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]

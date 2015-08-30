@@ -4,7 +4,7 @@
                    [lens.macros :refer [h]])
   (:require [cljs.core.async :as async]
             [cljs.reader :as reader]
-            [om.core :as om :include-macros true]
+            [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [cljsjs.dimple]

@@ -2,7 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go-loop]]
                    [lens.macros :refer [h]])
   (:require [cljs.core.async :refer [chan put! <! >!]]
-            [om.core :as om :include-macros true]
+            [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.terms :as terms]

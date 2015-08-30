@@ -6,7 +6,7 @@
             [cljs.core.async :as async :refer [put! chan <!]]
             [goog.dom :as dom]
             [goog.events :as events]
-            [om.core :as om :include-macros true]
+            [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.io :as io]

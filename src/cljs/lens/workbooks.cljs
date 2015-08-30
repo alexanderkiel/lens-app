@@ -2,7 +2,7 @@
   (:require-macros [lens.macros :refer [h]])
   (:require [clojure.string :as str]
             [plumbing.core :refer [assoc-when]]
-            [om.core :as om :include-macros true]
+            [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
             [lens.workbooks.create-dialog :refer [create-dialog]]

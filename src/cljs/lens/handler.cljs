@@ -3,7 +3,7 @@
 
   All handlers are called with a map of :app-state, :owner and :params."
   (:require-macros [plumbing.core :refer [defnk]])
-  (:require [om.core :as om :include-macros true]
+  (:require [om.core :as om]
             [lens.event-bus :as bus]))
 
 (defnk index [app-state]

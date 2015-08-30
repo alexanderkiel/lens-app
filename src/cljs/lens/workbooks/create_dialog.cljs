@@ -1,6 +1,6 @@
 (ns lens.workbooks.create-dialog
   (:require-macros [lens.macros :refer [h]])
-    (:require [om.core :as om :include-macros true]
+    (:require [om.core :as om]
               [om-tools.core :refer-macros [defcomponent]]
               [om-tools.dom :as d :include-macros true]
               [lens.event-bus :as bus]
