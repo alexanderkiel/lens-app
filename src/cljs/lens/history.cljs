@@ -9,9 +9,10 @@
            goog.history.Html5History
            goog.history.EventType))
 
-(def routes
-  ["/" {"" :index
-        ["w/" :id] :workbook}])
+(def ^:private routes
+  ["/"
+   {"" :index
+    ["w/" :id] :workbook}])
 
 (defn- create-history []
   (doto (Html5History.)
@@ -33,5 +34,5 @@
         (recur)))
     (bus/listen-on owner :route
       #(when-let [match (bidi/unmatch-pair routes %)]
-         (.setToken history match)))
+        (.setToken history match)))
     (.setEnabled history true)))
