@@ -4,9 +4,16 @@
   (:require [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
-            [lens.event-bus :as bus]))
+            [lens.event-bus :as bus]
+            [schema.core :as s :include-macros true]))
 
-(defn alert! [owner level msg]
+(def Level
+  "Alert level as available in Bootstrap."
+  (s/enum :success :info :warning :danger))
+
+(s/defn alert!
+  "Show an alert banner with level and message."
+  [owner level :- Level msg]
   (bus/publish! owner ::open {:level level :msg msg}))
 
 (defn internal-error! [owner n]
