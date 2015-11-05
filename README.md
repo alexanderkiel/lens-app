@@ -47,9 +47,6 @@ specified in the `resources/public/index-dev.html`. Currently this is
     var lensWorkbook = "http://localhost:5002/wb";
     var lensWarehouse = "http://localhost:5003/wh";
 
-You can run the services by checking them out, creating an `.env` file listing
-the appropiate port and starting them with `foreman start`. 
-
 ## Architecture
 
 Lens as a system consists of one frontend web application and various backend
