@@ -9,11 +9,6 @@
 
 ;; ---- Nav -------------------------------------------------------------------
 
-(defcomponent nav-item [item owner]
-  (render [_]
-    (d/li (when (:active item) {:class "active"})
-      (d/a {:href "#" :on-click (h ((:handler item) owner))} (:name item)))))
-
 (defcomponent undo-nav-item [_ owner]
   (will-mount [_]
     (bus/listen-on owner :undo-enabled #(om/set-state! owner :enabled %)))
@@ -24,11 +19,16 @@
       (d/a {:href "#" :title "Undo"
             :on-click (h (bus/publish! owner :undo {}))} (fa/span :undo)))))
 
+(defcomponent nav-item [item owner]
+  (render [_]
+    (d/li (when (:active item) {:class "active"})
+      (d/a {:href "#" :on-click (h ((:handler item) owner))} (:name item)))))
+
 (defcomponent nav [nav]
   (render [_]
-    (apply d/ul {:class "nav navbar-nav"}
-           (om/build undo-nav-item (:undo-nav-item nav))
-           (om/build-all nav-item (:items nav)))))
+    (d/ul {:class "nav navbar-nav"}
+      (om/build undo-nav-item (:undo-nav-item nav))
+      (om/build-all nav-item (:items nav)))))
 
 ;; ---- Sign In/Out -----------------------------------------------------------
 
