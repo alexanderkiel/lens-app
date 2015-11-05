@@ -6,6 +6,7 @@
             [cljs.core.async :as async :refer [put! chan <!]]
             [goog.dom :as dom]
             [goog.events :as events]
+            [schema.core :as s]
             [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
@@ -21,6 +22,7 @@
             [lens.util :as util]))
 
 (enable-console-print!)
+(s/set-fn-validation! js/enableSchemaValidation)
 
 (defonce app-state
   (atom
