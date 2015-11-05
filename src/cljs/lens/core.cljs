@@ -18,8 +18,7 @@
             [lens.item-dialog :refer [item-dialog]]
             [lens.alert :as alert :refer [alert alert!]]
             [lens.workbook :refer [workbook]]
-            [lens.workbooks :refer [workbooks]]
-            [lens.util :as util]))
+            [lens.workbooks :refer [workbooks]]))
 
 (enable-console-print!)
 (s/set-fn-validation! js/enableSchemaValidation)
