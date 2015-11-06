@@ -62,10 +62,10 @@
                              :auth true
                              :loaded-topic key}))
 
-(defn on-signed-in [owner]
+(defn- on-signed-in [owner]
   (load-workbooks! owner :private-workbooks))
 
-(defn on-sign-out [wbs]
+(defn- on-sign-out [wbs]
   (om/transact! wbs #(dissoc % :private-workbooks)))
 
 (defcomponent workbooks [wbs owner]
