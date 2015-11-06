@@ -16,7 +16,7 @@
             [lens.event-bus :as bus]
             [lens.navbar :refer [navbar]]
             [lens.item-dialog :refer [item-dialog]]
-            [lens.alert :as alert :refer [alert alert!]]
+            [lens.alert :as alert :refer [alerts alert!]]
             [lens.workbook :refer [workbook]]
             [lens.workbooks :refer [workbooks]]))
 
@@ -30,8 +30,8 @@
       {:undo-nav-item {}
        :items []}
       :sign-in-out {}}
-     :alert
-     {}
+     :alerts
+     []
      :item-dialog
      {:display "none"
       :terms
@@ -228,7 +228,7 @@
     (alert! owner :warning
             (d/span "Workbook not found. Please go "
               (d/a {:href "#" :class "alert-link"
-                    :on-click (h (alert/close! owner)
+                    :on-click (h (alert/remove-all! owner)
                                  (bus/publish! owner :route {:handler :index}))}
                 "home")
               "."))))
@@ -274,13 +274,13 @@
       (d/div
         (om/build item-dialog (:item-dialog app-state))
         (om/build navbar (:navbar app-state))
-        (om/build alert (:alert app-state))
+        (om/build alerts (:alerts app-state))
         (om/build workbooks (:workbooks app-state))
         (om/build workbook wb))
       (d/div
         (om/build item-dialog (:item-dialog app-state))
         (om/build navbar (:navbar app-state))
-        (om/build alert (:alert app-state))
+        (om/build alerts (:alerts app-state))
         (om/build workbooks (:workbooks app-state))))))
 
 (defnk on-history-tx
