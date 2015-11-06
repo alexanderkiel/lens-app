@@ -35,6 +35,35 @@
 (defn on-cancel [owner]
   (om/update-state! owner #(assoc % :username "" :password "" :expanded false)))
 
+(defn- username-input [username owner]
+  (d/input {:type "text" :class "form-control" :ref "username"
+            :placeholder "Username"
+            :value username
+            :on-change #(om/set-state! owner :username (util/target-value %))}))
+
+(defn- password-input [password owner]
+  (d/input {:type "password" :class "form-control"
+            :placeholder "Password"
+            :value password
+            :on-change
+            #(om/set-state! owner :password (util/target-value %))}))
+
+(defn- submit-button [username password owner]
+  (d/button {:class "btn btn-primary" :type "submit"
+             :on-click (h (bus/publish! owner :sign-in {:username username
+                                                        :password password}))}
+    "Go"))
+
+(defn- cancel-button [owner]
+  (d/button {:class "btn btn-default" :type "button"
+             :on-click (h (on-cancel owner))}
+    "Cancel"))
+
+(defn sign-in-button [owner]
+  (d/button {:class "btn btn-default navbar-btn navbar-right"
+             :on-click (h (om/set-state! owner :expanded true))
+             :type "button"} "Sign In"))
+
 (defcomponent sign-in-form [_ owner]
   (init-state [_]
       {:username ""
@@ -48,28 +77,15 @@
   (did-update [_ _ prev-state]
     (when (and (not (:expanded prev-state)) (om/get-state owner :expanded))
       (.focus (om/get-node owner "username"))))
-  (render-state [_ {:keys [username password expanded] :as state}]
+  (render-state [_ {:keys [username password expanded]}]
     (if expanded
       (d/form {:class "navbar-form navbar-right"}
         (d/div {:class "form-group"}
-          (d/input {:type "text" :class "form-control" :ref "username"
-                    :placeholder "Username"
-                    :value username
-                    :on-change
-                    #(om/set-state! owner :username (util/target-value %))})
-          (d/input {:type "password" :class "form-control"
-                    :placeholder "Password"
-                    :value password
-                    :on-change
-                    #(om/set-state! owner :password (util/target-value %))}))
-        (d/button {:class "btn btn-primary" :type "button"
-                   :on-click (h (bus/publish! owner :sign-in state))} "Go")
-        (d/button {:class "btn btn-default" :type "button"
-                   :on-click (h (on-cancel owner))} "Cancel"))
-
-      (d/button {:class "btn btn-default navbar-btn navbar-right"
-                 :on-click (h (om/set-state! owner :expanded true))
-                 :type "button"} "Sign In"))))
+          (username-input username owner)
+          (password-input password owner))
+        (submit-button username password owner)
+        (cancel-button owner))
+      (sign-in-button owner))))
 
 (defn- sign-out-button [owner]
   (d/span {:class "fa fa-sign-out" :role "button" :title "Sign Out"
