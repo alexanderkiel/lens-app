@@ -28,15 +28,16 @@
 
 (defcomponentk alert [[:data id level msg] owner]
   (render [_]
-    (d/div {:class "container-fluid"}
-      (d/div {:class (str "alert alert-" (name level) " alert-dismissible")
-              :role "alert"}
-        (d/button {:type "button" :class "close"
-                   :on-click (h (remove! owner id))}
-          (d/span "\u00D7"))
-        msg))))
+    (d/div {:class (str "alert alert-" (name level) " alert-dismissible")
+            :role "alert"}
+      (d/button {:type "button" :class "close"
+                 :on-click (h (remove! owner id))}
+        (d/span "\u00D7"))
+      msg)))
 
-(defcomponentk alerts [data owner]
+(defcomponentk alerts
+  "List of alert messages."
+  [data owner]
   (will-mount [_]
     (bus/listen-on owner ::add
       (fn [alert]
@@ -50,4 +51,4 @@
   (will-unmount [_]
     (bus/unlisten-all owner))
   (render [_]
-    (d/div (om/build-all alert data))))
+    (d/div {:class "container-fluid"} (om/build-all alert data))))
