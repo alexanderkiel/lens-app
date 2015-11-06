@@ -1,7 +1,15 @@
 body {
   height: 100%;
-  padding-top: 70px;
-  background-color: #E5E5E5;
+  padding-top: 50px;
+  background-color: #EAEBEC;
+}
+
+/* ---- Bootstrap Overrides ------------------------------------------------ */
+
+.form-control, .input-group-btn .btn {
+  box-shadow: none;
+  border: 1px solid #E7E9ED;
+  border-radius: 0;
 }
 
 /* ---- Navigation --------------------------------------------------------- */
@@ -12,12 +20,12 @@ body {
     margin-right: 0;
 }
 
-.navbar-default {
+/*.navbar-default {
   border: none;
   color: #272727;
   background-color: #FFF;
   box-shadow: rgba(0, 0, 0, 0.298039) 0 4px 2px -2px;
-}
+}*/
 
 .navbar-form > *, .navbar-form > .form-group > * {
    margin-right: 5px;
@@ -25,6 +33,87 @@ body {
 
 .navbar-form > *:last-child, .navbar-form > .form-group > *:last-child {
    margin-right: 0;
+}
+
+/* ---- Content Wrapper ---------------------------------------------------- */
+
+.content-wrapper {
+  padding: 20px;
+}
+
+/* ---- Content ------------------------------------------------------------ */
+
+.container-fluid {
+  background: #FFF;
+}
+
+.gray-content-block {
+  margin: -15px -15px 0;
+  padding: 15px;
+  background-color: #f7f8fa;
+  border-bottom: 1px solid #dce0e6;
+}
+
+/* ---- Study List --------------------------------------------------------- */
+
+.study-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.study-list li {
+  display: block;
+  padding: 16px;
+  border-bottom: 1px solid #F1F2F4;
+  margin: 0 -16px;
+}
+
+.study-list li:last-child {
+  border-bottom: none;
+}
+
+.study-list li a {
+  font-weight: bold;
+}
+
+.study-list li .desc {
+  color: #777;
+}
+
+/* ---- Form List ---------------------------------------------------------- */
+
+.forms-search-form {
+  margin: 0 -15px;
+  padding: 15px;
+  background-color: #f8fafc;
+  border-top: 1px solid #e7e9ed;
+  border-bottom: 1px solid #e7e9ed;
+}
+
+.form-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.form-list li {
+  display: block;
+  padding: 15px;
+  border-bottom: 1px solid #F1F2F4;
+  margin: 0 -15px;
+}
+
+.form-list li :last-child {
+  margin-bottom: 0;
+}
+
+.form-list li:last-child {
+  border-bottom: none;
+}
+
+.form-list li .desc {
+  color: #777;
 }
 
 /* ---- Workbook Thumb ----------------------------------------------------- */
@@ -51,15 +140,11 @@ body {
 /* ---- Query -------------------------------------------------------------- */
 
 .query {
-  margin-bottom: 20px;
 }
 
-.query h3 {
-  padding: 10px;
-  border: 1px solid #D8D8D8;
-  border-bottom-width: 2px;
-  margin-bottom: 20px;
-  background-color: #FFF;
+.query-head {
+  color: #777;
+  text-transform: uppercase;
 }
 
 /* ---- Query - Cell ------------------------------------------------------- */
@@ -116,4 +201,18 @@ div:last-child > .query-col-or-badge {
   border-bottom-width: 2px;
   margin-bottom: 20px;
   background-color: #FFF;
+}
+
+/* ---- Study -------------------------------------------------------------- */
+
+.study {
+  padding: 10px;
+  border: 1px solid #D8D8D8;
+  border-bottom-width: 2px;
+  margin-bottom: 20px;
+  background-color: #FFF;
+}
+
+.study:hover {
+  background-color: #f2f2f2;
 }

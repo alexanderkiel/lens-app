@@ -1,6 +1,6 @@
 (ns lens.history
   (:require-macros [cljs.core.async.macros :refer [go-loop]]
-                   [plumbing.core :refer [when-letk]])
+                   [plumbing.core :refer [when-letk fnk]])
   (:require [lens.util :as util]
             [bidi.bidi :as bidi]
             [lens.handler :as handler]
@@ -12,6 +12,9 @@
 (def ^:private routes
   ["/"
    {"" :index
+    "studies"
+    {"" :study-list
+     ["/" :id] :study}
     ["w/" :id] :workbook}])
 
 (defn- create-history []
@@ -28,11 +31,16 @@
     (go-loop []
       (when-let [token (.-token (<! nav))]
         (when-letk [[handler & more] (bidi/match-route routes token)]
-          (let [req {:app-state app-state :owner owner
-                     :params (:route-params more)}]
+          (let [req {:app-state app-state
+                     :owner owner
+                     :params (or (:route-params more) {})}]
+            (println "execute handler" handler "with" (:params req))
             ((handler/handlers handler) req)))
         (recur)))
     (bus/listen-on owner :route
-      #(when-let [match (bidi/unmatch-pair routes %)]
-        (.setToken history match)))
+      (fnk [handler {params {}} :as m]
+        (println "route request to" handler "with" params)
+        (when-let [match (bidi/unmatch-pair routes m)]
+          (println "set token" match)
+          (.setToken history match))))
     (.setEnabled history true)))

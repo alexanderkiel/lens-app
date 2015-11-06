@@ -10,9 +10,9 @@
   (om/transact! dialog #(assoc % :visible false :form {})))
 
 (defn publish-create! [dialog owner]
-  (bus/publish! owner :post (assoc (:create-form dialog)
-                              :params (:form dialog)
-                              :result-topic :private-workbooks/created)))
+  (bus/publish! owner :post {:uri (:href (:create-form dialog))
+                             :params @(:form dialog)
+                             :result-topic :private-workbooks/created}))
 
 (defn create-button [dialog owner]
   (d/button

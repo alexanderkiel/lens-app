@@ -1,5 +1,6 @@
 (ns lens.component
-  (:require-macros [cljs.core.async.macros :refer [go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop]]
+                   [lens.macros :refer [h]])
   (:require [cljs.core.async :as async :refer [put! chan <! >! alts!]]
             [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
@@ -49,20 +50,20 @@
     (let [query-ch (om/get-state owner :query-ch)]
       (go-loop [query nil
                 tmp-result-ch nil]
-               (let [timeout-ch (when (and query search) (async/timeout timeout))
-                     [v ch] (alts! (remove nil? [query-ch timeout-ch tmp-result-ch])
-                                   :priority true)]
-                 (condp = ch
-                   query-ch
-                   (when v
-                     (om/update! state :query v)
-                     (recur v nil))
-                   timeout-ch
-                   (recur nil (search @state query))
-                   tmp-result-ch
-                   (do
-                     (when result-ch (>! result-ch v))
-                     (recur query nil)))))))
+        (let [timeout-ch (when (and query search) (async/timeout timeout))
+              [v ch] (alts! (remove nil? [query-ch timeout-ch tmp-result-ch])
+                            :priority true)]
+          (condp = ch
+            query-ch
+            (when v
+              (om/update! state :query v)
+              (recur v nil))
+            timeout-ch
+            (recur nil (search @state query))
+            tmp-result-ch
+            (do
+              (when result-ch (>! result-ch v))
+              (recur query nil)))))))
   (did-mount [_]
     (let [clear-ch (om/get-state owner :clear-ch)
           query-ch (om/get-state owner :query-ch)
@@ -76,21 +77,19 @@
     (async/close! (om/get-state owner :query-ch))
     (async/close! (om/get-state owner :clear-ch)))
   (render-state [_ {:keys [query-ch clear-ch]}]
-    (d/form {:class "form" :role "form" :on-submit (constantly false)}
-      (d/div {:class "form-group"}
-        (d/div {:class "input-group"}
-          (d/input {:type "text"
-                    :ref "input"
-                    :class "form-control"
-                    :placeholder placeholder
-                    :value (or (:query state) "")
-                    :disabled (not (enabled? state))
-                    :on-change #(when-let [query (util/target-value %)]
-                                 (put! query-ch query))})
-          (d/span {:class "input-group-btn"}
-            (d/button {:class "btn btn-default" :type "button"
-                       :onClick #(put! clear-ch :clear)}
-                      (fa/span :times))))))))
+    (d/div {:class "input-group"}
+      (d/input {:type "search"
+                :ref "input"
+                :class "form-control"
+                :placeholder placeholder
+                :value (or (:query state) "")
+                :disabled (not (enabled? state))
+                :on-change #(when-let [query (util/target-value %)]
+                             (put! query-ch query))})
+      (d/span {:class "input-group-btn"}
+        (d/button {:class "btn btn-default" :type "button"
+                   :on-click (h (put! clear-ch :clear))}
+          (fa/span :times))))))
 
 (defcomponent count-badge [term :- Term owner]
   (init-state [_]

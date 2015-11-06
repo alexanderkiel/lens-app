@@ -1,9 +1,34 @@
 (ns lens.event-bus
   "Global Events:
 
+  :load - load stuff
+    {(s/optional-key :uri) hap/Uri
+     (s/optional-key :link-rel) s/Keyword
+     :loaded-topic s/Keyword}
+
+  :query - query stuff
+    {(s/optional-key :uri) hap/Uri
+     (s/optional-key :query-rel) s/Keyword
+     :params hap/Args
+     :target Target}
+
+  :post - create stuff
+    {:uri hap/Uri
+     :params hap/Args
+     :result-topic s/Keyword}
+
+  :put - update stuff
+    {:}
+
   :route - go to handler
     {:handler :index}
     {:handler :workbook :params {:id ...}}
+
+  :signed-in - user signed in
+    {:username Str}
+
+  :signed-out - user signed out
+    {}
 
   :undo - undo action
     {}
@@ -15,7 +40,12 @@
   :query - top level queries available through service document forms"
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [cljs.core.async :as async :refer [<!]]
-            [om.core :as om]))
+            [om.core :as om]
+            [schema.core :as s :include-macros true]))
+
+(def Topic
+  "A topic in the global event bus."
+  s/Keyword)
 
 (defn publisher [owner]
   (:publisher (om/get-shared owner :event-bus)))
@@ -31,9 +61,9 @@
 (defn register-for-unlisten [owner topic ch]
   (om/update-state! owner ::subs #(conj % [topic ch])))
 
-(defn listen-on
+(s/defn listen-on
   "Listens on a topic of the publication. Calls the callback with the message."
-  [owner topic callback]
+  [owner topic :- Topic callback]
   (let [ch (async/chan)]
     (register-for-unlisten owner topic ch)
     (async/sub (publication owner) topic ch)
@@ -77,5 +107,5 @@
     (async/unsub (publication owner) topic ch)
     (async/close! ch)))
 
-(defn publish! [owner topic msg]
+(s/defn publish! [owner topic :- Topic msg]
   (async/put! (publisher owner) {:topic topic :msg msg}))

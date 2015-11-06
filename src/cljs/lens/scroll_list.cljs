@@ -37,7 +37,7 @@
                                 {:className "scroll-list"} opts))
     (render-scroll-list-pad scroll-ch :up)
     (d/div {:class "scroll-list-hidden"}
-      (apply d/div {:class "scroll-list-scroll"
+      (d/div {:class "scroll-list-scroll"
                     :ref "scroll-view"
                     :on-scroll #(om/update! list :scroll-top
                                             (.. % -target -scrollTop))}

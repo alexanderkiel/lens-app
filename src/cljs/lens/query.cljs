@@ -14,7 +14,7 @@
             [lens.scroll-list :as sl]))
 
 (defn close-button [click-handler]
-  (d/button {:type "button" :class "close" :onClick click-handler} "\u00D7"))
+  (d/button {:type "button" :class "close" :on-click click-handler} "\u00D7"))
 
 (defn primary-code-list-item-label [term]
   (str (or (:item-name term) (:item-id term)) ": " (:code term)))
@@ -217,7 +217,7 @@
   (render [_]
     (d/div {:class "row-flex" :style {:flex 1}}
       (d/div {:class "col-xs-12-flex"}
-        (apply d/div {:class "row-flex" :style {:flex 1}}
+        (d/div {:class "row-flex" :style {:flex 1}}
                (om/build-all query-group groups))
         (d/div {:class "row-flex"}
           (d/div {:class "col-xs-12-flex"}

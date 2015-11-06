@@ -1,11 +1,10 @@
 (ns lens.workbook
   (:require-macros [cljs.core.async.macros :refer [go-loop]]
-                   [plumbing.core :refer [fnk]]
+                   [plumbing.core :refer [fnk defnk]]
                    [lens.macros :refer [h]])
   (:require [cljs.core.async :as async]
-            [cljs.reader :as reader]
             [om.core :as om]
-            [om-tools.core :refer-macros [defcomponent]]
+            [om-tools.core :refer-macros [defcomponent defcomponentk]]
             [om-tools.dom :as d :include-macros true]
             [cljsjs.dimple]
             [lens.fa :as fa]
@@ -14,10 +13,21 @@
             [lens.util :as util]
             [lens.event-bus :as bus]
             [lens.alert :refer [alert!]]
-            [lens.schema :as s]))
+            [schema.core :as s :include-macros true]
+            [lens.schema :as ls]
+            [lens.version :as version]))
+
+;; ---- History ---------------------------------------------------------------
 
 ;; Local history of all versions of the current workbook
 (defonce version-history (atom []))
+
+(defnk on-history-tx
+  "Workbook version advances.
+
+  Save the old state as point in history so that one can go back there."
+  [old-state]
+  (swap! version-history conj (-> old-state :workbook ::head)))
 
 ;; ---- Charts ----------------------------------------------------------------
 
@@ -111,30 +121,19 @@
   (d/span {:class (str "fa fa-" (if collapsed "chevron-right" "chevron-down"))
            :style {:margin-right "5px"}}))
 
-(defn remove-query-msg [idx]
-  {:form-rel :lens/remove-query
-   :params {:idx idx}
-   :state-fn
-   (fn [version]
-     (update-in version [:queries] #(->> (concat (take idx %) (drop (inc idx) %))
-                                         (map-indexed (fn [i q] (assoc q :idx i)))
-                                         (vec))))})
-
-(defn remove-query-button [owner idx]
-  (d/span {:class "fa fa-minus-square-o"
-           :title "Remove Query"
-           :role "button"
-           :style {:margin-left "10px"}
-           :on-click (h (bus/publish! owner ::tx (remove-query-msg idx)))}))
+(defn update-queries
+  "Returns a function which updates the queries of a version using f and takes
+  care of query indicies."
+  [f]
+  (fn [version]
+    (let [res (update-in version [:queries] (comp vec util/index f))]
+      (println "update version" (map :idx (:queries version)) "->" (map :idx (:queries res)))
+      res)))
 
 (defn duplicate-query-msg [idx]
   {:form-rel :lens/duplicate-query
    :params {:idx idx}
-   :state-fn
-   (fn [version]
-     (update-in version [:queries] #(->> (concat (take (inc idx) %) (drop idx %))
-                                         (map-indexed (fn [i q] (assoc q :idx i)))
-                                         (vec))))})
+   :state-fn (update-queries (util/duplicate-at idx))})
 
 (defn duplicate-query-button [owner idx]
   (d/span {:class "fa fa-files-o"
@@ -143,18 +142,28 @@
            :style {:margin-left "10px"}
            :on-click (h (bus/publish! owner ::tx (duplicate-query-msg idx)))}))
 
-(defcomponent headline [headline owner {:keys [idx collapsed]}]
+(defn remove-query-msg [idx]
+  {:form-rel :lens/remove-query
+   :params {:idx idx}
+   :state-fn (update-queries (util/remove-at idx))})
+
+(defn remove-query-button [owner idx]
+  (d/span {:class "fa fa-minus-square-o"
+           :title "Remove Query"
+           :role "button"
+           :style {:margin-left "10px"}
+           :on-click (h (bus/publish! owner ::tx (remove-query-msg idx)))}))
+
+(defcomponentk query-head [data owner [:opts idx collapsed]]
   (render-state [_ {:keys [hover]}]
-    (d/div {:class "row"}
-      (d/div {:class "col-md-12"
-              :on-mouse-enter #(om/set-state! owner :hover true)
-              :on-mouse-leave #(om/set-state! owner :hover false)}
-        (apply d/h4 {:class "text-uppercase text-muted"}
+    (d/h4 {:class "query-head"
+           :on-mouse-enter #(om/set-state! owner :hover true)
+           :on-mouse-leave #(om/set-state! owner :hover false)}
           (collapsed-sign collapsed)
-          headline
+          data
           (when hover
-            [(remove-query-button owner idx)
-             (duplicate-query-button owner idx)]))))))
+            [(duplicate-query-button owner idx)
+             (remove-query-button owner idx)]))))
 
 ;; ---- Query Grid ------------------------------------------------------------
 
@@ -174,7 +183,7 @@
 (defn load-term! [owner form-rel opts id]
   (bus/publish! owner :query {:form-rel form-rel
                               :params {:id id}
-                              :loaded-topic (term-loaded opts id)}))
+                              :target (term-loaded opts id)}))
 
 (defcomponent form [{:keys [id] :as form} owner opts]
   (will-mount [_]
@@ -188,7 +197,7 @@
           (str alias " (" id ")")
           id))
       (d/p {:class "text-muted"}
-        (or (:name form) "loading..."))
+           (or (:name form) "loading..."))
       (d/div {:id (cell-id opts id) :style {:height "150px"}}))))
 
 (defn single-item-group-expr [{:keys [id]}]
@@ -207,7 +216,7 @@
 
 (defcomponent item [{:keys [id] :as item} owner opts]
   (will-mount [_]
-    (when-not (if (s/is-numeric? item) (:value-histogram item) (:question item))
+    (when-not (if (ls/is-numeric? item) (:value-histogram item) (:question item))
       (load-term! owner :lens/find-item opts id)))
   (did-update [_ _ _]
     (when-let [value-histogram (seq (value-hist item))]
@@ -220,8 +229,8 @@
           (str alias " (" id ")")
           id))
       (d/p {:class "text-muted"}
-        (or (:question item) "loading..."))
-      (when (s/is-numeric? item)
+           (or (:question item) "loading..."))
+      (when (ls/is-numeric? item)
         (d/div {:id (cell-id opts id) :style {:height "150px"}})))))
 
 (defcomponent code-list-item [cl-item]
@@ -297,9 +306,9 @@
 
 (defn cell-adder [owner query-idx col-idx]
   (d/p {:class "text-muted"}
-    (d/a {:href "#" :class "cell-adder"
-          :on-click (h (show-item-dialog! owner query-idx col-idx))}
-      "Add a cell...")))
+       (d/a {:href "#" :class "cell-adder"
+             :on-click (h (show-item-dialog! owner query-idx col-idx))}
+         "Add a cell...")))
 
 (defn col-contains-cell? [owner cell]
   (some #{(:id cell)} (map :id (om/get-props owner :cells))))
@@ -351,20 +360,20 @@
   (will-unmount [_]
     (bus/unlisten-all owner))
   (render [_]
-    (d/div {:class "col-md-4"}
+    (d/div {:class "col-xs-4"}
       (when (and (pos? idx) (seq (:cells col)))
         (d/div {:class "query-col-and-badge text-muted"} "AND"))
-      (apply d/div {:class "query-cell-list"}
-             (om/build-all query-grid-cell (:cells col)
-                           {:opts (assoc opts :col-idx idx)}))
+      (d/div {:class "query-cell-list"}
+        (om/build-all query-grid-cell (:cells col)
+                      {:opts (assoc opts :col-idx idx)}))
       (cell-adder owner query-idx idx))))
 
-(defcomponent query-grid
+(defcomponentk query-grid
   "A grid of query cells."
-  [query-grid _ {:keys [collapsed] :as opts}]
+  [[:data cols] opts]
   (render [_]
-    (apply d/div {:class "row" :style {:display (if collapsed "none" "block")}}
-           (om/build-all query-grid-col (:cols query-grid) {:opts opts}))))
+    (d/div {:class "query-grid row"}
+      (om/build-all query-grid-col cols {:opts opts}))))
 
 ;; ---- Result ----------------------------------------------------------------
 
@@ -380,7 +389,7 @@
 (defcomponent visit-count-by-study-event-result
   "The result component subscribes to the :query-updated topic and executes a
   query whenever something is published."
-  [result owner {:keys [query-idx collapsed]}]
+  [result owner {:keys [query-idx]}]
   (will-mount [_]
     (bus/listen-on owner [:result-loaded query-idx]
       #(om/update! result :result (select-keys % [:visit-count-by-study-event]))))
@@ -391,15 +400,13 @@
     (when-let [result (:result result)]
       (draw-vc-by-se-result (vc-by-se-result-chart-id query-idx) result 7)))
   (render [_]
-    (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
-      (d/div {:class "col-md-12"}
-        (d/div {:class "result"}
-          (d/p {:class "text-uppercase"} "Visits by Study Event")
-          (d/p {:class "text-muted text-center"
-                :style {:display (if (:result result) "none" "block")}}
-            "Please add items to the query grid.")
-          (d/div {:id (vc-by-se-result-chart-id query-idx)
-                  :style {:height (if (:result result) "250px" "0")}}))))))
+    (d/div {:class "result"}
+      (d/p {:class "text-uppercase"} "Visits by Study Event")
+      (d/p {:class "text-muted text-center"
+            :style {:display (if (:result result) "none" "block")}}
+           "Please add items to the query grid.")
+      (d/div {:id (vc-by-se-result-chart-id query-idx)
+              :style {:height (if (:result result) "250px" "0")}}))))
 
 (defn vc-by-ad-and-sex-result-chart-id [query-idx]
   (str "visit-count-by-age-decade-result-chart-" query-idx))
@@ -407,7 +414,7 @@
 (defcomponent visit-count-by-age-decade-result
   "The result component subscribes to the :query-updated topic and executes a
   query whenever something is published."
-  [result owner {:keys [query-idx collapsed]}]
+  [result owner {:keys [query-idx]}]
   (will-mount [_]
     (bus/listen-on owner [:result-loaded query-idx]
       #(om/update! result :result (select-keys % [:visit-count-by-age-decade-and-sex]))))
@@ -418,15 +425,13 @@
     (when-let [result (:result result)]
       (draw-vc-by-ad-and-sex-result (vc-by-ad-and-sex-result-chart-id query-idx) result 7)))
   (render [_]
-    (d/div {:class "row" :style {:display (if collapsed "none" "block")}}
-      (d/div {:class "col-md-12"}
-        (d/div {:class "result"}
-          (d/p {:class "text-uppercase"} "Visits by Age Decade")
-          (d/p {:class "text-muted text-center"
-                :style {:display (if (:result result) "none" "block")}}
-            "Please add items to the query grid.")
-          (d/div {:id (vc-by-ad-and-sex-result-chart-id query-idx)
-                  :style {:height (if (:result result) "250px" "0")}}))))))
+    (d/div {:class "result"}
+      (d/p {:class "text-uppercase"} "Visits by Age Decade")
+      (d/p {:class "text-muted text-center"
+            :style {:display (if (:result result) "none" "block")}}
+           "Please add items to the query grid.")
+      (d/div {:id (vc-by-ad-and-sex-result-chart-id query-idx)
+              :style {:height (if (:result result) "250px" "0")}}))))
 
 ;; ---- Query -----------------------------------------------------------------
 
@@ -445,10 +450,10 @@
 (defn publish-query-expr! [owner idx expr]
   (bus/publish! owner [:query-updated idx] expr))
 
-(defcomponent query [{:keys [idx collapsed] :as query} owner opts]
+(defcomponent query [{:keys [idx collapsed] :as data} owner opts]
   (will-mount [_]
     (listen-on-query-updates owner idx)
-    (let [expr (build-query-expr query)]
+    (let [expr (build-query-expr data)]
       (publish-query-expr! owner idx expr)))
   (will-update [_ new-query _]
     (let [old-query-expr (build-query-expr (om/get-props owner))
@@ -456,63 +461,24 @@
       (when (not= old-query-expr new-query-expr)
         (publish-query-expr! owner idx new-query-expr))))
   (render [_]
-    (d/div
-      (om/build headline (or (:name query) (str "Query " (inc idx)))
+    (d/div {:class "query"}
+      (om/build query-head (or (:name data) (str "Query " (inc idx)))
                 {:opts {:idx idx :collapsed collapsed}})
-      (om/build query-grid (:query-grid query)
-                {:opts (assoc opts :query-idx idx :collapsed collapsed)})
-      (om/build visit-count-by-study-event-result (:vc-by-se-result query)
-                {:opts (assoc opts :query-idx idx :collapsed collapsed)})
-      (om/build visit-count-by-age-decade-result (:vc-by-ad-and-sex-result query)
-                {:opts (assoc opts :query-idx idx :collapsed collapsed)}))))
+      (d/div {:class "query-body" :style {:display (if collapsed "none" "block")}}
+        (om/build query-grid (:query-grid data)
+                  {:opts (assoc opts :query-idx idx)})
+        (om/build visit-count-by-study-event-result (:vc-by-se-result data)
+                  {:opts (assoc opts :query-idx idx)})
+        (om/build visit-count-by-age-decade-result (:vc-by-ad-and-sex-result data)
+                  {:opts (assoc opts :query-idx idx)})))))
 
 ;; ---- Workbook --------------------------------------------------------------
 
-(defn assoc-idx [idx x]
-  (assoc x :idx idx))
-
-(defn index-query [idx query]
-  (-> (update-in query [:query-grid :cols] #(vec (map-indexed assoc-idx %)))
-      (assoc :idx idx)))
-
-(defn resolve-code-list-item-ids [query]
-  (update-in
-    query [:query-grid :cols]
-    (fn [cols]
-      (mapv
-        (fn [col]
-          (update-in
-            col [:cells]
-            (fn [cells]
-              (mapv
-                (fn [{:keys [type] :as cell}]
-                  (if (= :code-list-item type)
-                    (update-in cell [:id] (fn [id] (reader/read-string id)))
-                    cell))
-                cells))))
-        cols))))
-
-(defn assoc-default-results [query]
-  (assoc query :vc-by-se-result {} :vc-by-ad-and-sex-result {}))
-
-(defn prepare-queries [queries]
-  (->> (map-indexed index-query queries)
-       (map resolve-code-list-item-ids)
-       (mapv assoc-default-results)))
-
-(defn prepare-version
-  "Adds some stuff to the version so that it can be used as part of the app
-  state."
-  [version]
-  (update-in version [:queries] prepare-queries))
-
 (defn on-loaded-version [workbook version]
-  (->> (-> (prepare-version version)
-           (assoc :open-txs #queue []))
-       (om/update! workbook :head)))
+  (om/update! workbook ::head (version/api->app-state version)))
 
 (defn tx-msg [version {:keys [form-rel params]}]
-  {:action (-> version :forms form-rel :action)
+  {:uri (-> version :forms form-rel :href)
    :params params
    :result-topic ::new-version})
 
@@ -520,17 +486,19 @@
   (-> (state-fn version)
       (update-in [:open-txs] #(conj % msg))))
 
-(defn perform-tx! [owner msg]
+(defn perform-tx!
+  "Performs a transaction on a version like adding a query."
+  [owner msg]
   (let [version (om/get-props owner)]
     (when (empty? (:open-txs version))
-      (bus/publish! owner :post (tx-msg version msg))
+      (bus/publish! owner :post (tx-msg @version msg))
       (bus/publish! owner ::out-of-sync true))
     (om/transact! version [] #(update-state % msg) :history)))
 
 (defn empty-query [idx]
   (->> {:query-grid {:cols (vec (repeat 3 {:cells []}))}}
-       (assoc-default-results)
-       (index-query idx)))
+       (version/assoc-default-results)
+       (version/index-query idx)))
 
 (defn add-query-msg []
   {:form-rel :lens/add-query
@@ -540,10 +508,10 @@
 
 (defn query-adder [owner]
   (d/p {:class "text-uppercase text-muted"}
-    (fa/span :chevron-right) " "
-    (d/a {:href "#" :class "query-adder"
-          :on-click (h (bus/publish! owner ::tx (add-query-msg)))}
-      "Add a query...")))
+       (fa/span :chevron-right) " "
+       (d/a {:href "#" :class "query-adder"
+             :on-click (h (bus/publish! owner ::tx (add-query-msg)))}
+         "Add a query...")))
 
 (defn out-of-sync-loop
   "Listens for ::out-of-sync events and sets the local :out-of-sync state
@@ -559,7 +527,7 @@
         (if (= ch port)
           (when val
             (if (:msg val)
-              (recur (if (= 2 (count ports)) ports [ch (async/timeout 500)]))
+              (recur (if (= 2 (count ports)) ports [ch (async/timeout 2000)]))
               (do
                 (om/set-state! owner :out-of-sync false)
                 (recur [ch]))))
@@ -567,7 +535,7 @@
             (om/set-state! owner :out-of-sync true)
             (recur [ch])))))))
 
-(defcomponent version
+(defcomponentk version
   "Component which holds a version of a workbook.
 
   It consists of two parts, a list of queries and a query adder, both wrapped in
@@ -577,7 +545,7 @@
   from subcomponents and delegates them to the server. All updates lead to a
   ::new-version event which is than handled by its parent component the
   workbook."
-  [version owner]
+  [[:data queries] owner]
   (will-mount [_]
     (bus/listen-on owner ::tx #(perform-tx! owner %))
     (out-of-sync-loop owner))
@@ -587,14 +555,18 @@
     (d/div {:class "container-fluid"}
       (when out-of-sync
         (d/div {:class "alert alert-warning" :role "alert"} "Out of sync!"))
-      (apply d/div (om/build-all query (:queries version)))
+      (om/build-all query queries)
       (query-adder owner))))
 
-(defn update-workbook-msg [workbook]
-  {:action (-> workbook :links :self :href)
-   :if-match (:etag workbook)
-   :params {:version-id (:id (:head workbook))}
+(defn update-workbook-msg [workbook new-version]
+  {:resource (-> workbook :links :self :href)
+   :representation (assoc-in workbook [:data :head-id] (-> new-version :data :id))
    :result-topic ::workbook-updated})
+
+(defn- update-head [new-version]
+  (fn [head]
+    (-> (update head :open-txs pop)
+        (assoc :forms (:forms new-version)))))
 
 (defn on-new-version
   "Updates the workbook with the new version created earlier.
@@ -602,22 +574,26 @@
   Doing something to the workbook is always a two stage process. First one
   creates a new immutable version carrying the changes and second one updates
   the workbook to point to that new version."
-  [owner {:keys [id] :as new-version}]
+  [owner new-version]
   (let [workbook (om/get-props owner)
-        head (:head workbook)
+        head (::head @workbook)
         open-txs (:open-txs head)]
-    (when (<= (count open-txs) 1)
-      (bus/publish! owner ::out-of-sync false))
-    (when (< 1 (count open-txs))
+    (if (= 1 (count open-txs))
+      (bus/publish! owner :put (update-workbook-msg @workbook new-version))
       (bus/publish! owner :post (tx-msg new-version (second open-txs))))
-    (om/transact! workbook :head
-                  #(-> (assoc % :id id
-                                :links (:links new-version)
-                                :forms (:forms new-version))
-                       (update-in [:open-txs] pop)))))
+    (om/transact! workbook [::head] (update-head new-version))))
 
-(defn on-workbook-updated [workbook wb]
-  (om/update! workbook :etag ((meta wb) "etag")))
+(defn on-workbook-updated [owner wb]
+  (bus/publish! owner ::out-of-sync false)
+  (if-let [status (:status (ex-data wb))]
+    (case status
+      412
+      (alert! owner :danger (str "Someone edited the workbook before your "
+                                 "change. Please reload."))
+      (alert! owner :danger (str "Error while saving the workbook: "
+                                 (.-message wb))))
+    (let [workbook (om/get-props owner)]
+      (om/transact! workbook #(assoc wb ::head (::head %))))))
 
 (defn load-head-msg
   "Message for :load topic loading the head of the workbook."
@@ -625,24 +601,18 @@
   {:uri (-> workbook :links :lens/head :href) :loaded-topic ::loaded-version})
 
 (defn local-undo [workbook]
-  (om/update! workbook :head (peek @version-history))
+  (om/update! workbook ::head (peek @version-history))
   (swap! version-history pop))
 
 (defn on-undo [owner]
   (let [workbook (om/get-props owner)]
     (if (seq @version-history)
       (local-undo workbook)
-      (when-let [uri (-> workbook :head :links :lens/parent :href)]
+      (when-let [uri (-> workbook ::head :links :lens/parent :href)]
         (bus/publish! owner :load {:uri uri :loaded-topic ::loaded-version})))))
 
-(defn update-workbook-on-head-change [owner old-workbook new-workbook]
-  (when-let [old-head (:head old-workbook)]
-    (when-let [new-head (:head new-workbook)]
-      (if (not= (:id new-head) (:id old-head))
-        (bus/publish! owner :put (update-workbook-msg new-workbook))))))
-
 (defn update-undo-enabled-state [owner workbook]
-  (->> (if (-> workbook :head :links :lens/parent) true false)
+  (->> (if (-> workbook ::head :links :lens/parent) true false)
        (bus/publish! owner :undo-enabled)))
 
 (defcomponent workbook
@@ -659,15 +629,13 @@
     (reset! version-history [])
     (bus/listen-on owner ::loaded-version #(on-loaded-version workbook %))
     (bus/listen-on owner ::new-version #(on-new-version owner %))
-    (bus/listen-on owner ::workbook-updated #(on-workbook-updated workbook %))
+    (bus/listen-on owner ::workbook-updated #(on-workbook-updated owner %))
     (bus/listen-on owner :undo #(on-undo owner))
     (bus/publish! owner :load (load-head-msg workbook)))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (will-update [_ new-workbook _]
-    (let [old-workbook (om/get-props owner)]
-      (update-workbook-on-head-change owner old-workbook new-workbook)
-      (update-undo-enabled-state owner new-workbook)))
+    (update-undo-enabled-state owner new-workbook))
   (render [_]
-    (util/set-title! (str (:name workbook) " - Lens"))
-    (when-let [head (:head workbook)] (om/build version head))))
+    (util/set-title! (str (:name (:data workbook)) " - Lens"))
+    (when-let [head (::head workbook)] (om/build version head))))

@@ -6,12 +6,12 @@
             [cljs.reader :as reader]
             [goog.events :as events]
             [cognitect.transit :as transit]
-            [lens.alert :refer [alert!]])
-  (:import [goog Uri]
-           [goog.net XhrIo EventType]))
+            [lens.alert :refer [alert!]]
+            [hap-client.impl.uri :as uri])
+  (:import [goog.net XhrIo EventType]))
 
 (defn resolve-uri [base-uri uri]
-  (->> (.parse Uri uri) (.resolve base-uri) (.toString)))
+  (->> (uri/create uri) (.resolve base-uri) (.toString)))
 
 (defn resolve-uri-in-form
   "Resolves relative URIs in :href and :action values of form using base-uri."
@@ -36,7 +36,7 @@
     (case (.getStatus xhr)
       (200 201) (->> (.getResponseText xhr)
                      (reader/read-string)
-                     (resolve-uris (.parse Uri url))
+                     (resolve-uris (uri/create url))
                      (headers-as-metadata (js->clj (.getResponseHeaders xhr)))
                      (on-complete))
       204 (->> (headers-as-metadata (js->clj (.getResponseHeaders xhr)) {})

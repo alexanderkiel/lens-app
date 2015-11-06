@@ -1,7 +1,7 @@
 (ns lens.navbar
   (:require-macros [lens.macros :refer [h]])
   (:require [om.core :as om]
-            [om-tools.core :refer-macros [defcomponent]]
+            [om-tools.core :refer-macros [defcomponent defcomponentk]]
             [om-tools.dom :as d :include-macros true]
             [lens.event-bus :as bus]
             [lens.util :as util]
@@ -19,10 +19,23 @@
       (d/a {:href "#" :title "Undo"
             :on-click (h (bus/publish! owner :undo {}))} (fa/span :undo)))))
 
-(defcomponent nav-item [item owner]
+(defn- nav-item-activator'
+  "Returns a function which sets the nav-item with id to active and all others
+  to non-active."
+  [id]
+  (fn [nav-items]
+    (mapv #(assoc % :active (= id (:id %))) nav-items)))
+
+(defn nav-item-activator
+  "Sets the nav-item with id to active and all others
+  to non-active."
+  [app-state id]
+  (update-in app-state [:navbar :nav :items] (nav-item-activator' id)))
+
+(defcomponentk nav-item [[:data active name handler] owner]
   (render [_]
-    (d/li (when (:active item) {:class "active"})
-      (d/a {:href "#" :on-click (h ((:handler item) owner))} (:name item)))))
+    (d/li (when active {:class "active"})
+      (d/a {:href "#" :on-click (h (handler owner))} name))))
 
 (defcomponent nav [nav]
   (render [_]
@@ -66,9 +79,9 @@
 
 (defcomponent sign-in-form [_ owner]
   (init-state [_]
-      {:username ""
-       :password ""
-       :expanded false})
+    {:username ""
+     :password ""
+     :expanded false})
   (will-mount [_]
     (bus/listen-on owner :signed-in
       (om/update-state! owner #(assoc % :username "" :password ""))))
@@ -100,7 +113,7 @@
   (render [_]
     (if (:username sign-in-out)
       (d/p {:class "navbar-text navbar-right"}
-        (:username sign-in-out) " " (sign-out-button owner))
+           (:username sign-in-out) " " (sign-out-button owner))
       (om/build sign-in-form (:form sign-in-out)))))
 
 ;; ---- Navbar ----------------------------------------------------------------

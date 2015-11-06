@@ -3,22 +3,23 @@
   (:require [clojure.string :as str]
             [plumbing.core :refer [assoc-when]]
             [om.core :as om]
-            [om-tools.core :refer-macros [defcomponent]]
+            [om-tools.core :refer-macros [defcomponent defcomponentk]]
             [om-tools.dom :as d :include-macros true]
             [lens.workbooks.create-dialog :refer [create-dialog]]
             [lens.fa :as fa]
             [lens.event-bus :as bus]
             [lens.util :as util]))
 
-(defn workbook-target [wb]
-  {:handler :workbook :params {:id (:id wb)}})
+(defn workbook-target [id]
+  {:handler :workbook
+   :params {:id id}})
 
-(defcomponent workbook [wb owner]
+(defcomponentk workbook [[:data id name] owner]
   (render [_]
     (d/div {:class "col-sm-4"}
       (d/div {:class "workbook-thumb" :role "button"
-              :on-click (h (bus/publish! owner :route (workbook-target wb)))}
-        (:name wb)))))
+              :on-click (h (bus/publish! owner :route (workbook-target id)))}
+        name))))
 
 (defcomponent creator [creator]
   (render [_]
@@ -37,14 +38,14 @@
           (d/h4 {:class "text-uppercase text-muted"}
                 (fa/span :user) " My Workbooks")))
       (d/div {:class "row"}
-        (apply d/div (om/build-all workbook (:list workbooks)))
+        (d/div (om/build-all workbook (:list workbooks)))
         (om/build creator (:creator workbooks))))))
 
 (defn build-workbooks-state [doc]
-  {:list (:lens/workbooks (:embedded doc))
+  {:list (mapv :data (:lens/workbooks (:embedded doc)))
    :creator
    {:dialog
-    {:create-form (select-keys (:lens/create (:forms doc)) [:action])
+    {:create-form (select-keys (:lens/create (:forms doc)) [:href])
      :form {}
      :visible false}}})
 
@@ -55,11 +56,10 @@
   (bus/listen-on owner (keyword (name key) "created")
     (fn [doc]
       (om/transact! wbs [key :list]
-                    #(util/insert-by (comp str/lower-case :name) % doc)))))
+                    #(util/insert-by (comp str/lower-case :name) % (:data doc))))))
 
 (defn load-workbooks! [owner key]
   (bus/publish! owner :load {:link-rel (util/prepend-ns "lens" key)
-                             :auth true
                              :loaded-topic key}))
 
 (defn- on-signed-in [owner]
@@ -68,7 +68,7 @@
 (defn- on-sign-out [wbs]
   (om/transact! wbs #(dissoc % :private-workbooks)))
 
-(defcomponent workbooks [wbs owner]
+(defcomponent private-workbook-list [wbs owner]
   (will-mount [_]
     (build-initial-workbooks-state! wbs owner :private-workbooks)
     (add-created-workbook! wbs owner :private-workbooks)

@@ -3,14 +3,15 @@
             [hodgepodge.core :as storage :refer [session-storage]]
             [om.core :as om]
             [lens.event-bus :as bus]
-            [lens.io :as io]))
+            [lens.io :as io]
+            [schema.core :as s :refer [Str] :include-macros true]))
 
 ;; ---- Session Storage -------------------------------------------------------
 
-(defn- get-token []
+(s/defn ^:private get-token :- (s/maybe Str) []
   (storage/get-item session-storage "token"))
 
-(defn- set-token! [token]
+(s/defn ^:private set-token! [token :- Str]
   (storage/set-item session-storage "token" token))
 
 (defn- remove-token! []
@@ -41,8 +42,10 @@
 
 ;; ---- Others ----------------------------------------------------------------
 
-(defn assoc-auth-token [req]
-  (assoc-when req :token (get-token)))
+(defn assoc-auth-token [opts]
+  (if-let [token (get-token)]
+    (assoc-in opts [:headers "Authorization"] (str "Bearer " token))
+    opts))
 
 (defn validate-token
   "Executed once at page load. Looks up a token in session storage and

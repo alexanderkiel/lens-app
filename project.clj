@@ -18,8 +18,10 @@
                  [prismatic/om-tools "0.3.12"]
                  [cljsjs/dimple "2.1.2-0"]
                  [com.andrewmcveigh/cljs-time "0.1.4"]
-                 [com.cognitect/transit-cljs "0.8.225"]
-                 [hodgepodge "0.1.3"]]
+                 [hodgepodge "0.1.3"]
+                 [org.clojars.akiel/hap-client-clj "0.3-SNAPSHOT"
+                  :exclusions [com.cognitect/transit-clj]]
+                 [org.clojars.akiel/async-error "0.1"]]
 
   :profiles {:dev
              {:source-paths ["dev"]
@@ -27,20 +29,29 @@
               :global-vars {*print-length* 20}
 
               :cljsbuild
-              {:builds [{:id "dev"
-                         :source-paths ["src/cljs"]
-                         :figwheel true
-                         :compiler
-                         {:output-to "resources/public/js/lens-dev.js"
-                          :output-dir "resources/public/js/out-dev"
-                          :optimizations :none
-                          :source-map true}}]}}
+              {:builds
+               {:dev
+                {:source-paths ["src/cljs-testable" "src/cljs"]
+                 :figwheel true
+                 :compiler
+                 {:output-to "resources/public/js/lens-dev.js"
+                  :output-dir "resources/public/js/out-dev"
+                  :optimizations :none
+                  :source-map true}}
+                :test
+                {:source-paths ["src/cljs-testable" "test/cljs"]
+                 :compiler
+                 {:output-to "target/unit-test.js"
+                  :optimizations :whitespace
+                  :pretty-print true}}}
+               :test-commands
+               {"unit" ["phantomjs" "test/unit-test.js" "test/unit-test.html"]}}}
 
              :production
              {:hooks [leiningen.cljsbuild]
 
               :cljsbuild
-              {:builds [{:source-paths ["src/cljs"]
+              {:builds [{:source-paths ["src/cljs-testable" "src/cljs"]
                          :compiler
                          {:output-to "resources/public/js/lens.js"
                           :optimizations :advanced
