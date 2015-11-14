@@ -26,7 +26,7 @@
 (defn init-bus []
   (let [publisher (async/chan)]
     {:publisher publisher
-     :publication (async/pub publisher #(:topic %))}))
+     :publication (async/pub publisher :topic)}))
 
 (defn register-for-unlisten [owner topic ch]
   (om/update-state! owner ::subs #(conj % [topic ch])))
