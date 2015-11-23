@@ -8,7 +8,6 @@ RUN chmod 644 /usr/share/nginx/html/js/lens.js
 COPY resources/public/index.html /usr/share/nginx/html/
 
 COPY docker/nginx.conf /etc/nginx/
-COPY docker/default.conf /etc/nginx/conf.d/
 COPY docker/start.sh /
 RUN chmod +x /start.sh
 

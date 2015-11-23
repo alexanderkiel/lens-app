@@ -116,6 +116,24 @@ body {
   color: #777;
 }
 
+.form-list li:hover .attachment-link {
+  display: inline-block;
+}
+
+  /* ---- Attachments -------------------------------------------------------- */
+
+.attachment-link {
+  display: none;
+  margin: 10px 0 10px 10px;
+  color: #333;
+  font-size: 14px;
+  line-height: 19px;
+}
+
+.attachment-link .fa {
+  margin-right: 5px;
+}
+
 /* ---- Workbook Thumb ----------------------------------------------------- */
 
 .workbook-thumb {

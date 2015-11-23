@@ -13,12 +13,27 @@
             [clojure.string :as str]
             [lens.component :refer [typeahead-search-field]]))
 
+(defn attachment-link [type-name uri]
+  (d/a {:class "attachment-link"
+        :title (str "Download " type-name)
+        :href uri
+        :target "_blank"}
+    (d/span {:class "fa fa-file-text"})
+    type-name))
+
 (defcomponentk form' [[:data id name {desc nil} {keywords nil}
                        {recording-type nil}]]
   (render [_]
     (println 'render-form name)
     (d/li
-      (d/h4 name (str " (" id ")"))
+      (d/h4 {:class "pull-left"} (str name " (" id ")"))
+      (attachment-link
+        "Report"
+        (str js/lensReport "/" id ".pdf"))
+      (attachment-link
+        "aCRF"
+        (str js/lensAcrf "/" id ".pdf"))
+      (d/div {:class "clearfix"})
       (when desc
         (map #(d/p (str/trim %)) (str/split desc #"\n")))
       (when (or keywords recording-type)
