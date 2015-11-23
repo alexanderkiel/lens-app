@@ -17,6 +17,8 @@ deploy:
     skip_cleanup: true
     region: eu-central-1
     endpoint: s3.eu-central-1.amazonaws.com
+    on:
+      branch: master
   - provider: s3
     access_key_id: AKIAJM2YQU4E2QVWVRIA
     secret_access_key:
