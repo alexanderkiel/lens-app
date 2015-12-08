@@ -3,6 +3,7 @@ __Please start at the [Top-Level Lens Repo][11].__
 # Lens App
 
 [![Build Status](https://travis-ci.org/alexanderkiel/lens-app.svg?branch=master)](https://travis-ci.org/alexanderkiel/lens-app)
+[![Docker Pulls](https://img.shields.io/docker/pulls/akiel/lens-app.svg)](https://hub.docker.com/r/akiel/lens-app/)
 
 The Lens App is a static ClojureScript frontend single page app using various 
 backend services. Please see section [Architecture](#architecture) for more 
