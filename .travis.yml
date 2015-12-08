@@ -1,5 +1,5 @@
 language: clojure
-script: lein with-profile production compile :all
+script: lein do cljsbuild test, clean, with-profile production compile :all
 deploy:
   - provider: releases
     api_key:

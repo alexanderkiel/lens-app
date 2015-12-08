@@ -11,7 +11,8 @@
             [lens.event-bus :as bus]
             [hap-client.core :as hap]
             [clojure.string :as str]
-            [lens.component :refer [typeahead-search-field]]))
+            [lens.component :refer [typeahead-search-field]]
+            [lens.util :as util]))
 
 (defn attachment-link [type-name uri]
   (d/a {:class "attachment-link"
@@ -35,7 +36,7 @@
         (str js/lensAcrf "/" id ".pdf"))
       (d/div {:class "clearfix"})
       (when desc
-        (map #(d/p (str/trim %)) (str/split desc #"\n")))
+        (util/render-multi-line-text desc))
       (when (or keywords recording-type)
         (d/dl
           (when recording-type (d/dt "Erhebungsart"))
@@ -121,7 +122,7 @@
     (d/div {:class "container-fluid"}
       (d/div
         (d/h3 name)
-        (when desc (d/p desc)))
+        (when desc (util/render-multi-line-text desc)))
       (om/build form-list' form-list))))
 
 (defn study-updater [res]

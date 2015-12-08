@@ -17,7 +17,7 @@ to JavaScript compilation works using:
 
 ## Test
 
-    lein test
+    lein cljsbuild test
 
 ## Run Lens App with Docker
 

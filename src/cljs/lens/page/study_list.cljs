@@ -4,7 +4,8 @@
   (:require [om.core :as om]
             [om-tools.core :refer-macros [defcomponent defcomponentk]]
             [om-tools.dom :as d :include-macros true]
-            [lens.event-bus :as bus]))
+            [lens.event-bus :as bus]
+            [lens.util :as util]))
 
 (defn- study-target [id]
   {:handler :study :params {:id id}})
@@ -15,7 +16,7 @@
       (d/a {:href "#"
             :on-click (h (bus/publish! owner :route (study-target id)))}
         name)
-      (when desc (d/div {:class "desc"} desc)))))
+      (when desc (d/div {:class "desc"} (util/render-multi-line-text desc))))))
 
 (defcomponentk study-list [data owner]
   (will-mount [_]

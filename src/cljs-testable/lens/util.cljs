@@ -3,7 +3,8 @@
             [cljs.core.async :refer [chan put!]]
             [plumbing.core :refer [assoc-when]]
             [goog.events :as events]
-            [schema.core :as s :include-macros true]))
+            [schema.core :as s :include-macros true]
+            [om-tools.dom :as d :include-macros true]))
 
 (defn add-soft-hyphen
   "Adds U+00AD soft hyphens after certain chars in string in order to
@@ -37,6 +38,9 @@
 
 (defn disable-when [m pred]
   (assoc-when m :disabled (when pred "disabled")))
+
+(defn render-multi-line-text [text]
+  (map #(d/p (str/trim %)) (str/split text #"\n")))
 
 ;; ---- Events ----------------------------------------------------------------
 
