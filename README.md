@@ -15,6 +15,10 @@ to JavaScript compilation works using:
 
     lein with-profile production compile :all
 
+## Test
+
+    lein test
+
 ## Run Lens App with Docker
 
 There is an automated build of Lens App on [Docker Hub][10] which builds a

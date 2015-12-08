@@ -24,8 +24,15 @@
     {:handler :index}
     {:handler :workbook :params {:id ...}}
 
+  :sign-in - user signs in
+    {:username Str
+     :password Str}
+
   :signed-in - user signed in
     {:username Str}
+
+  :sign-out - user signs out
+    {}
 
   :signed-out - user signed out
     {}

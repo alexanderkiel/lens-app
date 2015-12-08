@@ -110,7 +110,7 @@
   "Fetches uri and publishes the result under loaded-topic."
   [owner uri :- hap/Resource loaded-topic :- s/Keyword]
   (go
-    (->> (<! (hap/fetch uri (auth/assoc-auth-token {})))
+    (->> (<! (hap/fetch uri (auth/assoc-access-token {})))
          (bus/publish! owner loaded-topic))))
 
 (s/defn resolv-uri
@@ -213,8 +213,8 @@
   (go
     (try
       (let [resource (<? (hap/create {:href uri} (or params {})
-                                     (auth/assoc-auth-token {})))
-            doc (<? (hap/fetch resource (auth/assoc-auth-token {})))]
+                                     (auth/assoc-access-token {})))
+            doc (<? (hap/fetch resource (auth/assoc-access-token {})))]
         (bus/publish! owner result-topic doc))
       (catch js/Error e
         (alert! owner :danger (.-message e))))))
@@ -243,7 +243,7 @@
   (bus/listen-on owner :put
     (fnk [resource representation result-topic]
       (go
-        (->> (<! (hap/update resource representation (auth/assoc-auth-token {})))
+        (->> (<! (hap/update resource representation (auth/assoc-access-token {})))
              (bus/publish! owner result-topic))))))
 
 (defn on-loaded-workbook [app-state owner resp]

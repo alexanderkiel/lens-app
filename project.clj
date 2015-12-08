@@ -48,9 +48,7 @@
                {"unit" ["phantomjs" "test/unit-test.js" "test/unit-test.html"]}}}
 
              :production
-             {:hooks [leiningen.cljsbuild]
-
-              :cljsbuild
+             {:cljsbuild
               {:builds [{:source-paths ["src/cljs-testable" "src/cljs"]
                          :compiler
                          {:output-to "resources/public/js/lens.js"
@@ -64,6 +62,8 @@
   :source-paths ["src/clj" "src/cljs"]
   :resource-paths ["resources"]
   :clean-targets ^{:protect false} ["target" "out" "repl" "resources/public/js"]
+
+  :hooks [leiningen.cljsbuild]
 
   :repl-options {:welcome (do
                             (println "   Docs: (doc function-name-here)")
