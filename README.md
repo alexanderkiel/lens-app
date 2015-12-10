@@ -31,6 +31,8 @@ The container exposes port 80 and needs three environment variables
  * `AUTH_HOST` - the hostname of the [Lens Auth Service][5]
  * `WORKBOOK_HOST` - the hostname of the [Lens Workbook Service][8]
  * `WAREHOUSE_HOST` - the hostname of the [Lens Warehouse Service][9]
+ * `REPORT_URI` - the URI were reports can be found
+ * `ACRF_URI` - the URI were aCRFs can be found
 
 Start the container with the following command
 
