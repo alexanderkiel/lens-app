@@ -13,9 +13,10 @@
 (defcomponentk study [[:data id name {desc nil}] owner]
   (render [_]
     (d/li
-      (d/a {:href "#"
-            :on-click (h (bus/publish! owner :route (study-target id)))}
-        name)
+      (d/h4
+        (d/a {:href "#"
+              :on-click (h (bus/publish! owner :route (study-target id)))}
+          name))
       (when desc (d/div {:class "desc"} (util/render-multi-line-text desc))))))
 
 (defcomponentk study-list [data owner]
