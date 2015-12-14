@@ -47,12 +47,14 @@ Lens App uses [figwheel][6]
 Currently I get many warnings if I start figwheel without doing a `lein clean` 
 first. 
 
-You need to have the three backend services of Lens running under the URIs
+You need to have the five backend services of Lens running under the URIs
 specified in the `resources/public/index-dev.html`. Currently this is
 
     var lensAuth = "http://localhost:5001/auth";
     var lensWorkbook = "http://localhost:5002/wb";
     var lensWarehouse = "http://localhost:5003/wh";
+    var lensReport = "http://192.168.99.100:3001/report";
+    var lensAcrf = "http://192.168.99.100:3000/acrf";
 
 ## Architecture
 
