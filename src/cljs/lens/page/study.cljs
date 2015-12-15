@@ -119,7 +119,7 @@
     (bus/unlisten-all owner))
   (render [_]
     (println 'render-study name)
-    (d/div {:class "container-fluid"}
+    (d/div
       (d/div
         (d/h3 name)
         (when desc (util/render-multi-line-text desc)))

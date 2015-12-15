@@ -314,7 +314,7 @@
       (om/build item-dialog (:item-dialog app-state))
       (om/build navbar (:navbar app-state))
       (om/build alerts (:alerts app-state))
-      (d/div {:class "content-wrapper"}
+      (d/div {:class "container main-content"}
         (om/build page-selector (:pages app-state))))))
 
 (om/root app app-state

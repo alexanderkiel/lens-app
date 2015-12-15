@@ -26,6 +26,5 @@
         (om/update! data :list (mapv :data (:lens/studies embedded))))))
   (render [_]
     (println 'render-page-study-list)
-    (d/div {:class "container-fluid"}
-      (d/ul {:class "study-list"}
-        (om/build-all study (:list data))))))
+    (d/ul {:class "study-list"}
+      (om/build-all study (:list data)))))

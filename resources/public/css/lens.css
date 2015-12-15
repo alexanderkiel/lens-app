@@ -1,6 +1,6 @@
 body {
   height: 100%;
-  padding-top: 50px;
+  padding-top: 71px;
   background-color: #EAEBEC;
 }
 
@@ -35,15 +35,17 @@ body {
    margin-right: 0;
 }
 
-/* ---- Content Wrapper ---------------------------------------------------- */
+/* ---- Alert -------------------------------------------------------------- */
 
-.content-wrapper {
-  padding: 20px;
+.alert {
+  margin: 0 -15px 20px;
+  border: none;
+  border-radius: 0;
 }
 
 /* ---- Content ------------------------------------------------------------ */
 
-.container-fluid {
+.container.main-content {
   background: #FFF;
 }
 
@@ -64,17 +66,13 @@ body {
 
 .study-list li {
   display: block;
-  padding: 16px;
+  padding: 0 15px 15px;
   border-bottom: 1px solid #F1F2F4;
-  margin: 0 -16px;
+  margin: 0 -15px;
 }
 
 .study-list li:last-child {
   border-bottom: none;
-}
-
-.study-list li a {
-  font-weight: bold;
 }
 
 .study-list li .desc {

@@ -51,4 +51,4 @@
   (will-unmount [_]
     (bus/unlisten-all owner))
   (render [_]
-    (d/div {:class "container-fluid"} (om/build-all alert data))))
+    (d/div {:class "container"} (om/build-all alert data))))

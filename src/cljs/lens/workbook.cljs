@@ -552,7 +552,7 @@
   (will-unmount [_]
     (bus/unlisten-all owner))
   (render-state [_ {:keys [out-of-sync]}]
-    (d/div {:class "container-fluid"}
+    (d/div
       (when out-of-sync
         (d/div {:class "alert alert-warning" :role "alert"} "Out of sync!"))
       (om/build-all query queries)

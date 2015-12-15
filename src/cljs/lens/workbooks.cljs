@@ -78,7 +78,6 @@
     (bus/unlisten-all owner))
   (render [_]
     (when (:active wbs) (util/set-title! "Lens"))
-    (d/div {:class "container-fluid"
-            :style {:display (if (:active wbs)  "block" "none")}}
+    (d/div {:style {:display (if (:active wbs)  "block" "none")}}
       (when-let [ws (:private-workbooks wbs)]
         (om/build private-workbooks ws)))))
