@@ -13,7 +13,7 @@
 (defcomponentk study [[:data id name {desc nil}] owner]
   (render [_]
     (d/li
-      (d/h4
+      (d/h3
         (d/a {:href "#"
               :on-click (h (bus/publish! owner :route (study-target id)))}
           name))
