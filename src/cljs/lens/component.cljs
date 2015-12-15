@@ -5,7 +5,6 @@
             [om.core :as om]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as d :include-macros true]
-            [lens.schema :refer [Term]]
             [lens.fa :as fa]
             [lens.util :as util]))
 
@@ -90,22 +89,3 @@
         (d/button {:class "btn btn-default" :type "button"
                    :on-click (h (put! clear-ch :clear))}
           (fa/span :times))))))
-
-(defcomponent count-badge [term :- Term owner]
-  (init-state [_]
-    {:result-ch (chan)})
-  (did-mount [_]
-    (let [result-ch (om/get-state owner :result-ch)]
-      (go-loop []
-        (when-let [result (<! result-ch)]
-          (om/transact! term #(assoc-in % [:embedded :lens/count] result))
-          (recur)))))
-  (will-unmount [_]
-    (async/close! (om/get-state owner :result-ch)))
-  (render-state [_ {:keys [result-ch]}]
-    (if-let [count (-> term :embedded :lens/count :value)]
-      (d/span {:class "badge"} count)
-      (when (-> term :links :lens/count)
-        (put! (om/get-shared owner :count-load-ch) {:uri (-> term :links :lens/count :href)
-                                                    :result-ch result-ch})
-        (d/span {:class "badge"} (fa/span :refresh :spin))))))

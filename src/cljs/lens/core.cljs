@@ -16,13 +16,10 @@
             [lens.history :refer [history-loop]]
             [lens.event-bus :as bus]
             [lens.navbar :refer [navbar]]
-            [lens.item-dialog :refer [item-dialog]]
-            [lens.alert :as alert :refer [alerts alert!]]
+            [lens.alert :refer [alerts alert!]]
             [lens.page.index :refer [index]]
             [lens.page.study-list :refer [study-list]]
             [lens.page.study :refer [study-page]]
-            [lens.workbook :as wb :refer [workbook]]
-            [lens.workbooks :refer [private-workbook-list]]
             [hap-client.core :as hap]))
 
 (enable-console-print!)
@@ -55,9 +52,7 @@
         []}
        :study
        {:active-study nil
-        :studies {}}
-       :private-workbook-list {}
-       :workbook {}}}}))
+        :studies {}}}}}))
 
 (s/defn load-service-document [owner service :- hap/Resource]
   (go
@@ -85,12 +80,6 @@
         (swap! links #(merge % (dissoc (:links doc) :self)))
         (swap! queries #(merge % (:queries doc)))
         (swap! forms #(merge % (:forms doc)))))))
-
-(defn load-count-loop [owner load-ch]
-  (go-loop []
-    (when-let [{:keys [uri result-ch]} (<! load-ch)]
-      (io/get-xhr {:url uri :on-complete #(put! result-ch %)})
-      (recur))))
 
 (def Chan
   "A core.async channel."
@@ -246,23 +235,6 @@
         (->> (<! (hap/update resource representation (auth/assoc-access-token {})))
              (bus/publish! owner result-topic))))))
 
-(defn on-loaded-workbook [app-state owner resp]
-  (condp = (:status (ex-data resp))
-    404
-    (alert! owner :warning
-            (d/span "Workbook not found. Please go "
-              (d/a {:href "#" :class "alert-link"
-                    :on-click (h (alert/remove-all! owner)
-                                 (bus/publish! owner :route {:handler :index}))}
-                "home")
-              "."))
-
-    nil
-    (om/transact! app-state #(-> (assoc % :workbook resp)
-                                 (assoc-in [:workbooks :active] false)))
-
-    (alert! owner :danger (.-message resp))))
-
 (defonce figwheel-reload-ch
   (let [ch (chan)]
     (events/listen (.-body js/document) "figwheel.js-reload" #(put! ch %))
@@ -273,10 +245,6 @@
     (when (<! figwheel-reload-ch)
       (om/refresh! owner)
       (recur))))
-
-(defn load-most-recent-snapshot [owner]
-  (bus/publish! owner :load {:link-rel :lens/most-recent-snapshot
-                             :loaded-topic :most-recent-snapshot-loaded}))
 
 (defcomponentk page-selector [[:data active-page pages]]
   (render [_]
@@ -299,19 +267,14 @@
     (post-loop owner)
     (put-loop owner)
     (figwheel-reload-loop owner)
-    (load-count-loop owner (om/get-shared owner :count-load-ch))
     (auth/validate-token owner)
-    (bus/listen-on owner :loaded-workbook
-      #(on-loaded-workbook app-state owner %))
-    (load-all-service-documents owner)
-    #_(load-most-recent-snapshot owner))
+    (load-all-service-documents owner))
   (will-unmount [_]
     (bus/unlisten-all owner)
     (async/close! (om/get-shared owner :count-load-ch)))
   (render [_]
     (println 'render-app)
     (d/div
-      (om/build item-dialog (:item-dialog app-state))
       (om/build navbar (:navbar app-state))
       (om/build alerts (:alerts app-state))
       (d/div {:class "container main-content"}
@@ -325,17 +288,4 @@
             :event-bus (bus/init-bus)
             :links (atom {})
             :queries (atom {})
-            :forms (atom {})
-            :most-recent-snapshot (atom nil)}
-   :tx-listen
-   (fn [{:keys [path old-value new-value tag] :as tx} _]
-     (condp = tag
-
-       :history
-       (wb/on-history-tx tx)
-
-       #_:query
-       #_(println "TX at" path ": " old-value "->" new-value)
-
-       nil
-       #_(println (str "TX at " path ":") old-value "->" new-value)))})
+            :forms (atom {})}})
