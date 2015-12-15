@@ -337,4 +337,5 @@
        #_:query
        #_(println "TX at" path ": " old-value "->" new-value)
 
-       (println (str "TX at " path ":") old-value "->" new-value)))})
+       nil
+       #_(println (str "TX at " path ":") old-value "->" new-value)))})

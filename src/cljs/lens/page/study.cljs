@@ -44,6 +44,22 @@
           (when keywords (d/dt "Schlagwörter"))
           (when keywords (d/dd (str/join ", " (sort keywords)))))))))
 
+(defcomponentk desc' [[:data desc]]
+  (render [_]
+    (d/div
+      (d/div {:class "study-desc-head"}
+        (when desc
+          (into [] (comp (map str/trim)
+                         (filter #(str/starts-with? % "Projektleitung"))
+                         (map d/p))
+                (str/split desc #"\n"))))
+      (d/div {:class "study-desc"}
+        (when desc
+          (into [] (comp (map str/trim)
+                         (remove #(str/starts-with? % "Projektleitung"))
+                         (map d/p))
+                (str/split desc #"\n")))))))
+
 (defn- to-form [res]
   (:data res))
 
@@ -112,7 +128,7 @@
               :else
               (str "zeige " count " von " total " Instrumente"))))))))
 
-(defcomponentk study' [[:data name {desc nil} form-list] owner]
+(defcomponentk study' [[:data {nav :form-list} name {desc nil} form-list] owner]
   (will-mount [_]
     (println 'mount-study name))
   (will-unmount [_]
@@ -120,10 +136,21 @@
   (render [_]
     (println 'render-study name)
     (d/div
-      (d/div
-        (d/h3 name)
-        (when desc (util/render-multi-line-text desc)))
-      (om/build form-list' form-list))))
+      (d/h3 name)
+      (d/ul {:class "nav nav-tabs"}
+        (d/li (when (= :desc nav) {:class "active"})
+          (d/a {:href "#"
+                :on-click (h (om/update! (om/get-props owner) :nav :desc))}
+            "Beschreibung"))
+        (d/li (when (= :form-list nav) {:class "active"})
+          (d/a {:href "#"
+                :on-click (h (om/update! (om/get-props owner) :nav :form-list))}
+            "Instrumente")))
+      (case nav
+        :desc
+        (om/build desc' {:desc desc})
+        :form-list
+        (om/build form-list' form-list)))))
 
 (defn study-updater [res]
   (fn [study]
@@ -148,13 +175,13 @@
 
 (defcomponentk study-page [[:data active-study studies] owner]
   (will-mount [_]
-    (println 'mount-study-page active-study)
+    (println 'mount-study-page (:name active-study))
     (handle-study-loaded-event owner)
     (load-study owner active-study))
   (will-unmount [_]
     (bus/unlisten-all owner))
   (render [_]
-    (println 'render-study-page active-study)
+    (println 'render-study-page (:name active-study))
     (if-let [study (studies active-study)]
       (om/build study' study)
       (d/p))))
