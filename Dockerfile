@@ -7,6 +7,11 @@ ADD https://s3.eu-central-1.amazonaws.com/lens-app/hap/lens.js /usr/share/nginx/
 RUN chmod 644 /usr/share/nginx/html/js/lens.js
 COPY resources/public/index.html /usr/share/nginx/html/
 
+COPY docker/add-md5sums.sh /
+RUN chmod +x /add-md5sums.sh
+RUN /add-md5sums.sh
+RUN rm /add-md5sums.sh
+
 COPY docker/nginx.conf /etc/nginx/
 COPY docker/start.sh /
 RUN chmod +x /start.sh
