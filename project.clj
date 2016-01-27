@@ -6,73 +6,43 @@
 
   :min-lein-version "2.0.0"
 
-  :dependencies [[org.clojure/clojure "1.7.0"]
-                 [org.clojure/clojurescript "1.7.145"]
-                 [org.clojure/core.async "0.2.371"]
-                 [http-kit "2.1.18"]
-                 [ring/ring-core "1.3.2"]
-                 [bidi "1.21.0" :exclusions [ring/ring-core]]
-                 [compojure "1.3.3"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
+                 [org.clojure/clojurescript "1.7.228"]
+                 [org.clojure/core.async "0.2.374"
+                  :exclusions [org.clojure/tools.reader]]
+                 [bidi "1.25.0"]
                  [org.omcljs/om "0.9.0"]
-                 [prismatic/plumbing "0.4.4"]
                  [prismatic/om-tools "0.3.12"]
+                 [prismatic/plumbing "0.5.2"]
+                 [prismatic/schema "1.0.4"]
                  [cljsjs/dimple "2.1.2-0"]
-                 [com.andrewmcveigh/cljs-time "0.1.4"]
+                 [com.andrewmcveigh/cljs-time "0.3.14"]
                  [hodgepodge "0.1.3"]
-                 [org.clojars.akiel/hap-client-clj "0.3-SNAPSHOT"
+                 [http-kit "2.1.19"]
+                 [org.clojars.akiel/hap-client-clj "0.4"
                   :exclusions [com.cognitect/transit-clj]]
                  [org.clojars.akiel/async-error "0.1"]]
 
-  :profiles {:dev
-             {:source-paths ["dev"]
-              :dependencies [[org.clojure/tools.namespace "0.2.4"]]
-              :global-vars {*print-length* 20}
+  :plugins [[lein-cljsbuild "1.1.2"]]
 
-              :cljsbuild
-              {:builds
-               {:dev
-                {:source-paths ["src/cljs-testable" "src/cljs"]
-                 :figwheel true
-                 :compiler
-                 {:output-to "resources/public/js/lens-dev.js"
-                  :output-dir "resources/public/js/out-dev"
-                  :optimizations :none
-                  :source-map true}}
-                :test
-                {:source-paths ["src/cljs-testable" "test/cljs"]
-                 :compiler
-                 {:output-to "target/unit-test.js"
-                  :optimizations :whitespace
-                  :pretty-print true}}}
-               :test-commands
-               {"unit" ["phantomjs" "test/unit-test.js" "test/unit-test.html"]}}}
+  :profiles {:dev
+             {:source-paths ["dev" "script"]
+              :dependencies [[figwheel-sidecar "0.5.0-5"
+                              :exclusions [org.clojure/tools.reader
+                                           ring/ring-core
+                                           commons-fileupload
+                                           clj-time]]]}
 
              :production
-             {:hooks [leiningen.cljsbuild]
-
-              :cljsbuild
+             {:cljsbuild
               {:builds [{:source-paths ["src/cljs-testable" "src/cljs"]
                          :compiler
-                         {:output-to "resources/public/js/lens.js"
+                         {:output-to "resources/public/js/compiled/main.js"
+                          :main lens.core
                           :optimizations :advanced
-                          :pretty-print false}}]}}}
+                          :pretty-print false
+                          :parallel-build true}}]}}}
 
-  :plugins [[lein-cljsbuild "1.1.0"]
-            [lein-figwheel "0.4.1" :exclusions [org.codehaus.plexus/plexus-utils
-                                                org.clojure/clojure]]]
-
-  :source-paths ["src/clj" "src/cljs"]
+  :source-paths ["src/clj"]
   :resource-paths ["resources"]
-  :clean-targets ^{:protect false} ["target" "out" "repl" "resources/public/js"]
-
-  :repl-options {:welcome (do
-                            (println "   Docs: (doc function-name-here)")
-                            (println "         (find-doc \"part-of-name-here\")")
-                            (println "   Exit: Control+D or (exit) or (quit)")
-                            (println "  Start: (startup)")
-                            (println "Restart: (reset)"))}
-
-  :figwheel {:css-dirs ["resources/public/css"]
-             :nrepl-port 7889
-             :server-port 5000
-             :ring-handler lens.app/app-dev})
+  :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"])

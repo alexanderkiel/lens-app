@@ -87,7 +87,7 @@
 
 (def Target
   "A event target which can be a topic in the global event bus or a channel."
-  (s/either bus/Topic Chan))
+  (s/cond-pre bus/Topic Chan))
 
 (s/defn publish! [owner target :- Target result]
   (if (keyword? target)

@@ -1,10 +1,10 @@
-FROM nginx:1.9.7
+FROM nginx:1.9.9
 
 RUN rm /usr/share/nginx/html/*
 COPY resources/public/css /usr/share/nginx/html/css
 COPY resources/public/fonts /usr/share/nginx/html/fonts
-ADD https://s3.eu-central-1.amazonaws.com/lens-app/hap/lens.js /usr/share/nginx/html/js/
-RUN chmod 644 /usr/share/nginx/html/js/lens.js
+ADD resources/public/js/compiled/main.js /usr/share/nginx/html/js/compiled/
+RUN chmod 644 /usr/share/nginx/html/js/compiled/main.js
 COPY resources/public/index.html /usr/share/nginx/html/
 
 COPY docker/add-md5sums.sh /

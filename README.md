@@ -5,8 +5,8 @@ __Please start at the [Top-Level Lens Repo][11].__
 [![Build Status](https://travis-ci.org/alexanderkiel/lens-app.svg?branch=master)](https://travis-ci.org/alexanderkiel/lens-app)
 [![Docker Pulls](https://img.shields.io/docker/pulls/akiel/lens-app.svg)](https://hub.docker.com/r/akiel/lens-app/)
 
-The Lens App is a static ClojureScript frontend single page app using various 
-backend services. Please see section [Architecture](#architecture) for more 
+The Lens App is a static ClojureScript frontend single page app using various
+backend services. Please see section [Architecture](#architecture) for more
 information.
 
 ## Build
@@ -14,7 +14,7 @@ information.
 Currently a complete compilation including a production optimized ClojureScript
 to JavaScript compilation works using:
 
-    lein with-profile production compile :all
+    lein do clean, with-profile production cljsbuild once
 
 ## Test
 
@@ -36,7 +36,7 @@ The container exposes port 80 and needs three environment variables
 
 Start the container with the following command
 
-    docker run -p 80:80 -e AUTH_HOST=<...> -e WORKBOOK_HOST=<...> -e WAREHOUSE_HOST=<...> akiel/lens-app
+    docker run -p 80:80 -e AUTH_HOST=<...> -e WORKBOOK_HOST=<...> -e WAREHOUSE_HOST=<...> -e REPORT_URI=<...> -e ACRF_URI=<...> akiel/lens-app
 
 ## Develop
 
@@ -44,8 +44,8 @@ Lens App uses [figwheel][6]
 
     rlwrap lein figwheel
 
-Currently I get many warnings if I start figwheel without doing a `lein clean` 
-first. 
+Currently I get many warnings if I start figwheel without doing a `lein clean`
+first.
 
 You need to have the five backend services of Lens running under the URIs
 specified in the `resources/public/index-dev.html`. Currently this is
